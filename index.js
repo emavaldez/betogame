@@ -23,11 +23,13 @@ class Entity {
     dispose() {
         if (this.mesh) {
             this.scene.remove(this.mesh);
-            this.mesh.geometry.dispose();
-            if (this.mesh.material.length) {
-                this.mesh.material.forEach(m => m.dispose());
-            } else {
-                this.mesh.material.dispose();
+            if (this.mesh.geometry) this.mesh.geometry.dispose();
+            if (this.mesh.material) {
+                if (Array.isArray(this.mesh.material)) {
+                    this.mesh.material.forEach(m => m.dispose());
+                } else {
+                    this.mesh.material.dispose();
+                }
             }
         }
     }
@@ -40,15 +42,15 @@ class Beto extends Entity {
         this.direction = new THREE.Vector3(0, 0, 1);
         this.isMoving = false;
         this.targetPosition = null;
-        this.createModel();
         this.walkCycle = 0;
         this.walkSpeed = 5;
+        this.createModel();
     }
 
     createModel() {
         const group = new THREE.Group();
 
-        // Cuerpo (camiseta de Boca)
+        // Cuerpo (azul Boca)
         const bodyGeo = new THREE.BoxGeometry(1, 1.2, 0.6);
         const bodyMat = new THREE.MeshStandardMaterial({ color: 0x0000FF });
         const body = new THREE.Mesh(bodyGeo, bodyMat);
@@ -79,7 +81,7 @@ class Beto extends Entity {
         rightEye.position.set(0.2, 1.8, 0.35);
         group.add(rightEye);
 
-        // Pijama/bermuda
+        // Bermuda
         const pantsGeo = new THREE.BoxGeometry(0.8, 0.6, 0.7);
         const pantsMat = new THREE.MeshStandardMaterial({ color: 0x1E90FF });
         const pants = new THREE.Mesh(pantsGeo, pantsMat);
@@ -88,25 +90,23 @@ class Beto extends Entity {
 
         // Manos
         const handGeo = new THREE.BoxGeometry(0.35, 0.4, 0.35);
-        const hands = [];
+        this.hands = [];
         for (let i = 0; i < 2; i++) {
             const hand = new THREE.Mesh(handGeo, headMat);
             hand.position.set(i === 0 ? -0.7 : 0.7, 1.4, 0);
             group.add(hand);
-            hands.push(hand);
+            this.hands.push(hand);
         }
-        this.hands = hands;
 
         // Piernas
         const legGeo = new THREE.BoxGeometry(0.35, 0.8, 0.35);
-        const legs = [];
+        this.legs = [];
         for (let i = 0; i < 2; i++) {
             const leg = new THREE.Mesh(legGeo, pantsMat);
             leg.position.set(i === 0 ? -0.4 : 0.4, 0.4, 0);
             group.add(leg);
-            legs.push(leg);
+            this.legs.push(leg);
         }
-        this.legs = legs;
 
         // Bandana
         const hatGeo = new THREE.BoxGeometry(1.0, 0.2, 1.0);
@@ -129,7 +129,6 @@ class Beto extends Entity {
             this.legs[0].rotation.x = offset;
             this.legs[1].rotation.x = -offset;
         }
-
         if (this.hands && this.hands.length > 1) {
             const offset = Math.cos(this.walkCycle) * 0.3;
             this.hands[0].rotation.y = offset;
@@ -137,18 +136,15 @@ class Beto extends Entity {
         }
 
         if (this.targetPosition) {
-            const direction = new THREE.Vector3().subVectors(
-                this.targetPosition,
-                this.mesh.position
-            ).normalize();
-
+            const direction = new THREE.Vector3()
+                .subVectors(this.targetPosition, this.mesh.position)
+                .normalize();
             const distance = this.mesh.position.distanceTo(this.targetPosition);
 
             if (distance > 0.1) {
                 this.mesh.position.add(direction.multiplyScalar(this.speed));
                 this.isMoving = true;
-                const targetRotation = Math.atan2(direction.x, direction.z);
-                this.mesh.rotation.y = targetRotation;
+                this.mesh.rotation.y = Math.atan2(direction.x, direction.z);
             } else {
                 this.targetPosition = null;
                 this.isMoving = false;
@@ -160,16 +156,17 @@ class Beto extends Entity {
         this.mesh.position.z = Math.max(-limit, Math.min(limit, this.mesh.position.z));
     }
 
-    move(direction) {
+    move(keys) {
         const moveVector = new THREE.Vector3(0, 0, 0);
+        const keyList = Array.isArray(keys) ? keys : Object.keys(keys);
 
-        if (direction.includes('w') || direction.includes('arrowup')) moveVector.z -= 1;
-        if (direction.includes('s') || direction.includes('arrowdown')) moveVector.z += 1;
-        if (direction.includes('a') || direction.includes('arrowleft')) moveVector.x -= 1;
-        if (direction.includes('d') || direction.includes('arrowright')) moveVector.x += 1;
+        if (keyList.includes('w') || keyList.includes('arrowup')) moveVector.z -= 1;
+        if (keyList.includes('s') || keyList.includes('arrowdown')) moveVector.z += 1;
+        if (keyList.includes('a') || keyList.includes('arrowleft')) moveVector.x -= 1;
+        if (keyList.includes('d') || keyList.includes('arrowright')) moveVector.x += 1;
 
         if (moveVector.length() > 0) {
-            moveVector.normalize().multiplyScalar(this.speed);
+            moveVector.normalize().multiplyScalar(this.speed * 10);
             const newPos = this.mesh.position.clone().add(moveVector);
             newPos.x = Math.max(-45, Math.min(45, newPos.x));
             newPos.z = Math.max(-45, Math.min(45, newPos.z));
@@ -183,44 +180,43 @@ class Beto extends Entity {
 }
 
 class Car extends Entity {
-    constructor(scene, color = null) {
+    constructor(scene) {
         super(scene);
-        this.color = color || Math.random() * 0xffffff;
+        this.color = Math.random() * 0xffffff;
         this.state = 'waiting';
         this.parkPosition = null;
         this.arrivalTime = Date.now();
         this.maxWaitTime = 15000;
+        this.parkStartTime = 0;
         this.createModel();
     }
 
     createModel() {
         const group = new THREE.Group();
 
+        const chassisMat = new THREE.MeshStandardMaterial({ color: this.color, roughness: 0.3, metalness: 0.7 });
+
         // Chasis
-        const chassisGeo = new THREE.BoxGeometry(2.2, 0.8, 4.5);
-        const chassisMat = new THREE.MeshStandardMaterial({ color: this.color });
-        const chassis = new THREE.Mesh(chassisGeo, chassisMat);
+        const chassis = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.8, 4.5), chassisMat);
         group.add(chassis);
 
         // Techo
-        const roofGeo = new THREE.BoxGeometry(1.8, 0.6, 2.5);
-        const roofMat = new THREE.MeshStandardMaterial({ color: this.color });
-        const roof = new THREE.Mesh(roofGeo, roofMat);
+        const roof = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.6, 2.5), chassisMat);
         roof.position.y = 1.0;
         group.add(roof);
 
         // Ventanas
-        const windowGeo = new THREE.BoxGeometry(1.8, 0.25, 2.0);
-        const windowMat = new THREE.MeshStandardMaterial({ color: 0x87CEEB, transparent: true, opacity: 0.5 });
-        const windows = new THREE.Mesh(windowGeo, windowMat);
+        const windows = new THREE.Mesh(
+            new THREE.BoxGeometry(1.8, 0.25, 2.0),
+            new THREE.MeshStandardMaterial({ color: 0x87CEEB, transparent: true, opacity: 0.5 })
+        );
         windows.position.y = 1.4;
         group.add(windows);
 
         // Ruedas
         const wheelGeo = new THREE.CylinderGeometry(0.4, 0.4, 0.2, 16);
         const wheelMat = new THREE.MeshStandardMaterial({ color: 0x333333 });
-        const positions = [[-1.1, 0.4, -1.8], [1.1, 0.4, -1.8], [-1.1, 0.4, 1.8], [1.1, 0.4, 1.8]];
-        positions.forEach(pos => {
+        [[-1.1, 0.4, -1.8], [1.1, 0.4, -1.8], [-1.1, 0.4, 1.8], [1.1, 0.4, 1.8]].forEach(pos => {
             const wheel = new THREE.Mesh(wheelGeo, wheelMat);
             wheel.rotation.z = Math.PI / 2;
             wheel.position.set(...pos);
@@ -228,32 +224,19 @@ class Car extends Entity {
         });
 
         // Faros
-        const lightGeo = new THREE.BoxGeometry(0.4, 0.3, 0.1);
         const lightMat = new THREE.MeshStandardMaterial({ color: 0xFFFFAA, emissive: 0xFFFFAA, emissiveIntensity: 0.5 });
-        const headlightL = new THREE.Mesh(lightGeo, lightMat);
-        headlightL.position.set(-0.8, 0.6, -2.3);
-        group.add(headlightL);
-        const headlightR = new THREE.Mesh(lightGeo, lightMat);
-        headlightR.position.set(0.8, 0.6, -2.3);
-        group.add(headlightR);
+        [-0.8, 0.8].forEach(x => {
+            const headlight = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.3, 0.1), lightMat);
+            headlight.position.set(x, 0.6, -2.3);
+            group.add(headlight);
+        });
 
-        // Indicador de estado
-        this.statusIndicator = new THREE.Group();
-        const indicatorGeo = new THREE.BoxGeometry(1, 0.5, 1);
-        const indicatorMat = new THREE.MeshStandardMaterial({ color: 0xFFD700, emissive: 0xFFD700, emissiveIntensity: 0.3 });
-        const indicator = new THREE.Mesh(indicatorGeo, indicatorMat);
-        indicator.position.y = 2.5;
-        this.statusIndicator.add(indicator);
+        // Indicador flotante
+        const indicatorMat = new THREE.MeshStandardMaterial({ color: 0xFFD700, emissive: 0xFFD700, emissiveIntensity: 0.5 });
+        this.indicator = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.6, 0.6), indicatorMat);
+        this.indicator.position.y = 2.8;
+        group.add(this.indicator);
 
-        // Texto "Click"
-        const textGeo = new THREE.PlaneGeometry(1.5, 0.6);
-        this.clickTextMaterial = new THREE.MeshBasicMaterial({ color: 0xFFFFFF, transparent: true, opacity: 0.8 });
-        this.clickText = new THREE.Mesh(textGeo, this.clickTextMaterial);
-        this.clickText.position.set(0, 3.0, 0);
-        this.clickText.rotation.x = -Math.PI / 2;
-        this.statusIndicator.add(this.clickText);
-
-        group.add(this.statusIndicator);
         this.mesh = group;
         this.scene.add(this.mesh);
     }
@@ -261,42 +244,44 @@ class Car extends Entity {
     update(deltaTime) {
         if (!this.visible) return;
 
+        // Animar indicador
+        if (this.indicator) {
+            this.indicator.rotation.y += deltaTime * 2;
+            this.indicator.position.y = 2.8 + Math.sin(Date.now() * 0.003) * 0.2;
+        }
+
         switch (this.state) {
-            case 'waiting':
-                this.mesh.rotation.y += deltaTime * 0.2;
+            case 'waiting': {
                 const elapsed = Date.now() - this.arrivalTime;
-                if (elapsed < this.maxWaitTime) {
-                    this.statusIndicator.visible = Math.floor(elapsed / 500) % 2 === 0;
-                    const timeLeft = Math.ceil((this.maxWaitTime - elapsed) / 1000);
-                    this.clickTextMaterial.color.setHex(0xFFFFFF);
-                } else {
-                    this.statusIndicator.visible = false;
-                    this.clickTextMaterial.color.setHex(0xFF4444);
-                    if (Math.random() < 0.02) this.state = 'leaving';
+                if (elapsed >= this.maxWaitTime) {
+                    if (Math.random() < 0.01) this.state = 'leaving';
                 }
                 break;
-
-            case 'parking':
-                const parkProgress = Math.min((Date.now() - this.parkStartTime) / 1000, 1);
+            }
+            case 'parking': {
                 if (this.parkPosition) {
-                    const targetPos = new THREE.Vector3(this.parkPosition.x, 0.5, this.parkPosition.z);
-                    const direction = new THREE.Vector3().subVectors(targetPos, this.mesh.position).normalize();
-                    this.mesh.position.add(direction.multiplyScalar(0.1));
-                    if (direction.length() > 0.1) {
-                        this.mesh.rotation.y = Math.atan2(direction.x, direction.z);
+                    const target = new THREE.Vector3(this.parkPosition.x, 0.5, this.parkPosition.z);
+                    const dir = new THREE.Vector3().subVectors(target, this.mesh.position);
+                    const dist = dir.length();
+                    if (dist > 0.3) {
+                        dir.normalize();
+                        this.mesh.position.add(dir.multiplyScalar(0.12));
+                        this.mesh.rotation.y = Math.atan2(dir.x, dir.z);
+                    } else {
+                        this.mesh.position.copy(target);
+                        this.state = 'parked';
+                        if (this.indicator) this.indicator.visible = false;
                     }
                 }
-                if (parkProgress >= 1) {
-                    this.state = 'parked';
-                    this.statusIndicator.visible = false;
-                }
                 break;
-
-            case 'leaving':
-                this.mesh.position.z += deltaTime * 0.5;
-                if (this.mesh.position.z > 60) this.visible = false;
+            }
+            case 'leaving': {
+                this.mesh.position.z += deltaTime * 8;
+                if (this.mesh.position.z > 70) this.visible = false;
                 break;
+            }
         }
+
         this.mesh.position.y = 0.5;
     }
 
@@ -304,163 +289,6 @@ class Car extends Entity {
         this.state = 'parking';
         this.parkStartTime = Date.now();
         this.parkPosition = { x, z };
-        const markerGeo = new THREE.BoxGeometry(0.5, 1, 0.5);
-        const markerMat = new THREE.MeshStandardMaterial({ color: 0x4CAF50, transparent: true, opacity: 0.7 });
-        this.parkMarker = new THREE.Mesh(markerGeo, markerMat);
-        this.parkMarker.position.set(x, 1, z);
-        this.scene.add(this.parkMarker);
-    }
-
-    leave() {
-        this.state = 'leaving';
-    }
-}
-
-class Passenger extends Entity {
-    constructor(scene) {
-        super(scene);
-        this.state = 'waiting';
-        this.arrivalTime = Date.now();
-        this.maxWaitTime = 8000;
-        this.accessories = [];
-        const possible = ['remera', 'pantalon', 'bufanda', 'gorro', 'trompeta'];
-        for (let i = 0; i < Math.floor(Math.random() * 3) + 1; i++) {
-            const acc = possible[Math.floor(Math.random() * possible.length)];
-            if (!this.accessories.includes(acc)) this.accessories.push(acc);
-        }
-        this.createModel();
-    }
-
-    createModel() {
-        const group = new THREE.Group();
-
-        // Cuerpo
-        const bodyGeo = new THREE.BoxGeometry(0.8, 1.5, 0.6);
-        const bodyMat = new THREE.MeshStandardMaterial({ color: 0x4FC3F7 });
-        const body = new THREE.Mesh(bodyGeo, bodyMat);
-        body.position.y = 0.9;
-        group.add(body);
-
-        // Cabeza
-        const headGeo = new THREE.BoxGeometry(0.5, 0.6, 0.5);
-        const headMat = new THREE.MeshStandardMaterial({ color: 0xFFCCAA });
-        const head = new THREE.Mesh(headGeo, headMat);
-        head.position.y = 1.9;
-        group.add(head);
-
-        // Ojos
-        const eyeGeo = new THREE.BoxGeometry(0.1, 0.1, 0.05);
-        const eyeMat = new THREE.MeshStandardMaterial({ color: 0x000000 });
-        const leftEye = new THREE.Mesh(eyeGeo, eyeMat);
-        leftEye.position.set(-0.2, 1.9, 0.3);
-        group.add(leftEye);
-        const rightEye = new THREE.Mesh(eyeGeo, eyeMat);
-        rightEye.position.set(0.2, 1.9, 0.3);
-        group.add(rightEye);
-
-        // Accesorios
-        this.createAccessories(group);
-
-        // Indicador de estado
-        this.statusIndicator = new THREE.Group();
-        const indicatorGeo = new THREE.BoxGeometry(1, 0.5, 1);
-        this.statusMat = new THREE.MeshStandardMaterial({ color: 0xFFD700, emissive: 0xFFD700, emissiveIntensity: 0.3 });
-        const indicator = new THREE.Mesh(indicatorGeo, this.statusMat);
-        indicator.position.y = 2.8;
-        this.statusIndicator.add(indicator);
-
-        // Texto "Pagar"
-        const textGeo = new THREE.PlaneGeometry(1.5, 0.6);
-        this.payTextMaterial = new THREE.MeshBasicMaterial({ color: 0xFFFFFF, transparent: true, opacity: 0.8 });
-        this.payText = new THREE.Mesh(textGeo, this.payTextMaterial);
-        this.payText.position.set(0, 3.2, 0);
-        this.payText.rotation.x = -Math.PI / 2;
-        this.statusIndicator.add(this.payText);
-
-        group.add(this.statusIndicator);
-        this.mesh = group;
-        this.scene.add(this.mesh);
-    }
-
-    createAccessories(parent) {
-        const colors = [0x2196F3, 0xFFC107, 0xE91E63];
-        this.accessories.forEach(acc => {
-            const accGroup = new THREE.Group();
-            switch (acc) {
-                case 'remera':
-                    const remeraGeo = new THREE.BoxGeometry(1.2, 0.8, 0.7);
-                    const remeraMat = new THREE.MeshStandardMaterial({ color: colors[Math.floor(Math.random() * colors.length)] });
-                    const remera = new THREE.Mesh(remeraGeo, remeraMat);
-                    remera.position.y = 1.4;
-                    accGroup.add(remera);
-                    break;
-                case 'pantalon':
-                    const pantGeo = new THREE.BoxGeometry(1.0, 0.7, 0.8);
-                    const pantMat = new THREE.MeshStandardMaterial({ color: 0xFFFFFF });
-                    const pantalon = new THREE.Mesh(pantGeo, pantMat);
-                    pantalon.position.y = 0.6;
-                    accGroup.add(pantalon);
-                    break;
-                case 'bufanda':
-                    const bufGeo = new THREE.TorusGeometry(0.3, 0.1, 8, 20);
-                    const bufMat = new THREE.MeshStandardMaterial({ color: colors[Math.floor(Math.random() * colors.length)] });
-                    const bufanda = new THREE.Mesh(bufGeo, bufMat);
-                    bufanda.position.set(0, 1.8, 0);
-                    accGroup.add(bufanda);
-                    break;
-                case 'gorro':
-                    const gorroGeo = new THREE.ConeGeometry(0.25, 0.6, 16);
-                    const gorroMat = new THREE.MeshStandardMaterial({ color: colors[Math.floor(Math.random() * colors.length)] });
-                    const gorro = new THREE.Mesh(gorroGeo, gorroMat);
-                    gorro.position.set(0, 2.4, 0);
-                    accGroup.add(gorro);
-                    break;
-                case 'trompeta':
-                    const trumGeo = new THREE.CylinderGeometry(0.1, 0.3, 0.8, 8);
-                    const trumMat = new THREE.MeshStandardMaterial({ color: 0xFFD700 });
-                    const trompeta = new THREE.Mesh(trumGeo, trumMat);
-                    trompeta.position.set(0.5, 1.2, 0.4);
-                    accGroup.add(trompeta);
-                    break;
-            }
-            parent.add(accGroup);
-        });
-    }
-
-    update(deltaTime) {
-        if (!this.visible) return;
-
-        switch (this.state) {
-            case 'waiting':
-                const elapsed = Date.now() - this.arrivalTime;
-                if (elapsed < this.maxWaitTime) {
-                    this.statusIndicator.visible = Math.floor(elapsed / 400) % 2 === 0;
-                    this.payTextMaterial.color.setHex(0xFFFFFF);
-                } else {
-                    this.statusIndicator.visible = false;
-                    this.payTextMaterial.color.setHex(0xFF4444);
-                    if (Math.random() < 0.05) this.state = 'leaving';
-                }
-                break;
-            case 'paying':
-                const payProgress = Math.min((Date.now() - this.payStartTime) / 1000, 1);
-                if (payProgress >= 1) {
-                    this.state = 'leaving';
-                    this.payTextMaterial.color.setHex(0x4CAF50);
-                }
-                break;
-            case 'leaving':
-                this.mesh.position.z += deltaTime * 0.3;
-                if (this.mesh.position.z > 60) this.visible = false;
-                break;
-        }
-        this.mesh.position.y = 1;
-    }
-
-    startPaying() {
-        this.state = 'paying';
-        this.payStartTime = Date.now();
-        this.statusIndicator.visible = true;
     }
 
     leave() {
@@ -473,64 +301,58 @@ class Dog extends Entity {
         super(scene);
         this.state = 'wandering';
         this.attackTime = 0;
+        this.walkTime = 0;
         this.createModel();
     }
 
     createModel() {
         const group = new THREE.Group();
 
+        const bodyMat = new THREE.MeshStandardMaterial({ color: 0x8D6E63 });
+        const darkMat = new THREE.MeshStandardMaterial({ color: 0x5D4037 });
+
         // Cuerpo
-        const bodyGeo = new THREE.BoxGeometry(1.2, 0.8, 2.0);
-        const bodyMat = new THREE.MeshStandardMaterial({ color: 0x5D4037 });
-        const body = new THREE.Mesh(bodyGeo, bodyMat);
+        const body = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.8, 2.0), bodyMat);
         body.position.y = 0.6;
         group.add(body);
 
         // Cabeza
-        const headGeo = new THREE.BoxGeometry(1.0, 0.9, 1.2);
-        const headMat = new THREE.MeshStandardMaterial({ color: 0x3E2723 });
-        const head = new THREE.Mesh(headGeo, headMat);
+        const head = new THREE.Mesh(new THREE.BoxGeometry(1.0, 0.9, 1.2), darkMat);
         head.position.set(0, 1.4, 0.8);
         group.add(head);
 
         // Orejas
-        const earGeo = new THREE.BoxGeometry(0.3, 0.7, 0.1);
-        const earMat = new THREE.MeshStandardMaterial({ color: 0x3E2723 });
-        const leftEar = new THREE.Mesh(earGeo, earMat);
-        leftEar.position.set(-0.5, 1.6, 0.8);
-        leftEar.rotation.z = Math.PI / 4;
-        group.add(leftEar);
-        const rightEar = new THREE.Mesh(earGeo, earMat);
-        rightEar.position.set(0.5, 1.6, 0.8);
-        rightEar.rotation.z = -Math.PI / 4;
-        group.add(rightEar);
+        [-0.5, 0.5].forEach((x, i) => {
+            const ear = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.7, 0.1), darkMat);
+            ear.position.set(x, 1.7, 0.8);
+            ear.rotation.z = i === 0 ? Math.PI / 6 : -Math.PI / 6;
+            group.add(ear);
+        });
 
         // Ojos
-        const eyeGeo = new THREE.BoxGeometry(0.2, 0.2, 0.1);
         const eyeMat = new THREE.MeshStandardMaterial({ color: 0xFFD700 });
-        const leftEye = new THREE.Mesh(eyeGeo, eyeMat);
-        leftEye.position.set(-0.35, 1.4, 1.1);
-        group.add(leftEye);
-        const rightEye = new THREE.Mesh(eyeGeo, eyeMat);
-        rightEye.position.set(0.35, 1.4, 1.1);
-        group.add(rightEye);
+        [-0.35, 0.35].forEach(x => {
+            const eye = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.2, 0.1), eyeMat);
+            eye.position.set(x, 1.4, 1.15);
+            group.add(eye);
+        });
 
-        // Patas
+        // Patas (guardamos refs para animar)
         const legGeo = new THREE.BoxGeometry(0.25, 0.7, 0.25);
-        const legMat = new THREE.MeshStandardMaterial({ color: 0x3E2723 });
-        const positions = [[-0.5, 0.4, -0.8], [0.5, 0.4, -0.8], [-0.5, 0.4, 1.0], [0.5, 0.4, 1.0]];
-        positions.forEach(pos => {
-            const leg = new THREE.Mesh(legGeo, legMat);
+        this.patas = [];
+        [[-0.5, 0.4, -0.7], [0.5, 0.4, -0.7], [-0.5, 0.4, 0.8], [0.5, 0.4, 0.8]].forEach(pos => {
+            const leg = new THREE.Mesh(legGeo, darkMat);
             leg.position.set(...pos);
             group.add(leg);
+            this.patas.push(leg);
         });
 
         // Cola
-        const tailGeo = new THREE.CylinderGeometry(0.1, 0.2, 0.8, 8);
-        const tailMat = new THREE.MeshStandardMaterial({ color: 0x3E2723 });
-        const tail = new THREE.Mesh(tailGeo, tailMat);
-        tail.position.set(0, 1.2, -1.0);
+        const tail = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.2, 0.8, 8), darkMat);
+        tail.position.set(0, 1.2, -1.1);
+        tail.rotation.x = -0.5;
         group.add(tail);
+        this.tail = tail;
 
         this.mesh = group;
         this.scene.add(this.mesh);
@@ -540,41 +362,53 @@ class Dog extends Entity {
         if (!this.visible) return;
 
         switch (this.state) {
-            case 'wandering':
-                const wanderSpeed = 0.05;
-                if (Math.random() < 0.02) this.mesh.rotation.y += (Math.random() - 0.5) * Math.PI / 2;
-                this.mesh.position.x += Math.sin(this.mesh.rotation.y) * wanderSpeed;
-                this.mesh.position.z += Math.cos(this.mesh.rotation.y) * wanderSpeed;
-                const limit = 45;
+            case 'wandering': {
+                const speed = 0.06;
+                if (Math.random() < 0.02) {
+                    this.mesh.rotation.y += (Math.random() - 0.5) * Math.PI / 2;
+                }
+                this.mesh.position.x += Math.sin(this.mesh.rotation.y) * speed;
+                this.mesh.position.z += Math.cos(this.mesh.rotation.y) * speed;
+
+                const limit = 44;
                 this.mesh.position.x = Math.max(-limit, Math.min(limit, this.mesh.position.x));
                 this.mesh.position.z = Math.max(-limit, Math.min(limit, this.mesh.position.z));
-                this.walkTime = (this.walkTime || 0) + deltaTime * 5;
-                const walkOffset = Math.sin(this.walkTime) * 0.2;
-                this.mesh.children[3].position.y = 0.4 + walkOffset;
-                this.mesh.children[6].position.y = 0.4 - walkOffset;
+
+                // Animar patas
+                this.walkTime += deltaTime * 6;
+                if (this.patas.length >= 4) {
+                    this.patas[0].rotation.x = Math.sin(this.walkTime) * 0.4;
+                    this.patas[1].rotation.x = -Math.sin(this.walkTime) * 0.4;
+                    this.patas[2].rotation.x = -Math.sin(this.walkTime) * 0.4;
+                    this.patas[3].rotation.x = Math.sin(this.walkTime) * 0.4;
+                }
+                if (this.tail) this.tail.rotation.z = Math.sin(this.walkTime * 2) * 0.3;
                 break;
-            case 'attacking':
-                const attackProgress = Math.min((Date.now() - this.attackTime) / 1500, 1);
-                if (attackProgress >= 1) this.state = 'leaving';
+            }
+            case 'attacking': {
+                if (Date.now() - this.attackTime > 1500) this.state = 'leaving';
                 break;
-            case 'leaving':
-                this.mesh.position.z += deltaTime * 0.3;
-                if (this.mesh.position.z > 60) this.visible = false;
+            }
+            case 'leaving': {
+                this.mesh.position.z += deltaTime * 6;
+                if (this.mesh.position.z > 70) this.visible = false;
                 break;
+            }
         }
+
+        this.mesh.position.y = 0;
     }
 
     attack() {
         this.state = 'attacking';
         this.attackTime = Date.now();
-        const originalScale = this.mesh.scale.x;
         for (let i = 0; i < 3; i++) {
             setTimeout(() => {
                 if (this.visible) {
                     this.mesh.scale.set(1.5, 1.5, 1.5);
-                    setTimeout(() => { if (this.visible) this.mesh.scale.set(originalScale, originalScale, originalScale); }, 200);
+                    setTimeout(() => { if (this.visible) this.mesh.scale.set(1, 1, 1); }, 200);
                 }
-            }, i * 300);
+            }, i * 350);
         }
     }
 }
@@ -584,11 +418,12 @@ class Dog extends Entity {
 // =============================================
 
 const CONFIG = {
-    playerSpeed: 0.15,
-    cameraHeight: 20,
-    cameraDistance: 30,
-    colors: { grass: 0x4CAF50, ground: 0x795548, sky: 0x87CEEB, lineWhite: 0xFFFFFF },
-    levels: {}
+    colors: { grass: 0x4CAF50, lineWhite: 0xFFFFFF },
+    levels: {
+        1: { spawnRate: 2000, dogRate: 4000 },
+        2: { spawnRate: 1200, dogRate: 2500 },
+        3: { spawnRate: 700, dogRate: 1500 }
+    }
 };
 
 const GAME = {
@@ -596,13 +431,10 @@ const GAME = {
     currentLevel: 1,
     money: 100,
     lives: 3,
-    carsCount: 0,
-    maxCars: 20,
+    maxCars: 15,
     entities: { cars: [], passengers: [], dogs: [] },
     keys: {},
-    mouse: { x: 0, y: 0 },
-    cameraAngle: 0,
-    lastTime: 0,
+    beto: null,
     spawnInterval: null,
     dogInterval: null
 };
@@ -610,70 +442,92 @@ const GAME = {
 class GameEngine {
     constructor() {
         this.canvas = document.getElementById('game-canvas');
-
         this.scene = new THREE.Scene();
-        this.scene.background = new THREE.Color(0x87CEEB); // Sky blue background
+        this.scene.background = new THREE.Color(0x87CEEB);
 
         this.camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+        this.camera.position.set(0, 25, 45);
+        this.camera.lookAt(0, 0, -5);
 
-        try {
-            this.renderer = new THREE.WebGLRenderer({ canvas: this.canvas, antialias: true });
-            // Force WebGL context to be created immediately
-            const gl = this.renderer.getContext();
-            if (!gl) {
-                throw new Error('WebGL context not created');
-            }
-        } catch(e) {
-            console.error('[BETO] WebGL failed, trying fallback:', e.message);
-            // Try without antialias as fallback
-            try {
-                this.renderer = new THREE.WebGLRenderer({ canvas: this.canvas, antialias: false });
-            } catch(e2) {
-                console.error('[BETO] All rendering failed:', e2.message);
-                return;
-            }
-        }
-
-        this.beto = null;
-        this.levelManager = null;
-        this.init();
-    }
-
-    init() {
+        this.renderer = new THREE.WebGLRenderer({ canvas: this.canvas, antialias: true });
         this.renderer.setSize(window.innerWidth, window.innerHeight);
+        this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
         this.renderer.shadowMap.enabled = true;
 
-        this.camera.position.set(0, 25, 45);
-        this.camera.lookAt(0, 0, -10);
+        this.groundMesh = null;
 
-        const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
-        this.scene.add(ambientLight);
+        this.setupLights();
+        this.setupInitialScene();
+        this.setupEvents();
 
-        const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
-        directionalLight.position.set(10, 20, 10);
-        directionalLight.castShadow = true;
-        this.scene.add(directionalLight);
+        this.lastTime = performance.now();
+        requestAnimationFrame(t => this.loop(t));
+    }
 
+    setupLights() {
+        const ambient = new THREE.AmbientLight(0xffffff, 0.7);
+        this.scene.add(ambient);
+
+        const sun = new THREE.DirectionalLight(0xffffff, 1.0);
+        sun.position.set(15, 30, 15);
+        sun.castShadow = true;
+        this.scene.add(sun);
+    }
+
+    setupInitialScene() {
+        // Suelo
+        const groundGeo = new THREE.PlaneGeometry(120, 120);
+        const groundMat = new THREE.MeshStandardMaterial({ color: CONFIG.colors.grass, roughness: 0.9 });
+        this.groundMesh = new THREE.Mesh(groundGeo, groundMat);
+        this.groundMesh.rotation.x = -Math.PI / 2;
+        this.groundMesh.receiveShadow = true;
+        this.groundMesh.userData.isGround = true;
+        this.scene.add(this.groundMesh);
+
+        // Líneas de estacionamiento
+        this.createParkingLines();
+    }
+
+    createParkingLines() {
+        const lineMat = new THREE.MeshStandardMaterial({ color: CONFIG.colors.lineWhite, roughness: 0.5 });
+        for (let x = -36; x <= 36; x += 6) {
+            const line = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 8), lineMat);
+            line.rotation.x = -Math.PI / 2;
+            line.position.set(x, 0.05, -10);
+            this.scene.add(line);
+        }
+        // Líneas horizontales delimitadoras
+        for (let z of [-6, -14]) {
+            const line = new THREE.Mesh(new THREE.PlaneGeometry(80, 0.5), lineMat);
+            line.rotation.x = -Math.PI / 2;
+            line.position.set(0, 0.05, z);
+            this.scene.add(line);
+        }
+    }
+
+    setupEvents() {
         window.addEventListener('resize', () => {
             this.camera.aspect = window.innerWidth / window.innerHeight;
             this.camera.updateProjectionMatrix();
             this.renderer.setSize(window.innerWidth, window.innerHeight);
         });
 
-        document.addEventListener('keydown', (e) => {
+        document.addEventListener('keydown', e => {
             GAME.keys[e.key.toLowerCase()] = true;
-            if (GAME.beto) GAME.beto.move(Object.keys(GAME.keys));
+            if (GAME.state === 'PLAYING' && GAME.beto) {
+                GAME.beto.move(Object.keys(GAME.keys).filter(k => GAME.keys[k]));
+            }
         });
-        document.addEventListener('keyup', (e) => { GAME.keys[e.key.toLowerCase()] = false; });
 
-        this.canvas.addEventListener('click', (e) => this.onCanvasClick(e));
+        document.addEventListener('keyup', e => {
+            GAME.keys[e.key.toLowerCase()] = false;
+        });
 
-        this.lastTime = performance.now();
-        requestAnimationFrame((time) => this.loop(time));
+        this.canvas.addEventListener('click', e => this.onCanvasClick(e));
     }
 
     onCanvasClick(e) {
-        if (!GAME.beto || !this.levelManager) return;
+        if (GAME.state !== 'PLAYING' || !GAME.beto) return;
 
         const rect = this.canvas.getBoundingClientRect();
         const x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
@@ -682,89 +536,135 @@ class GameEngine {
         const raycaster = new THREE.Raycaster();
         raycaster.setFromCamera(new THREE.Vector2(x, y), this.camera);
 
-        const ground = this.scene.children.find(c => c.geometry.type === 'PlaneGeometry' && c.material.color.getHex() !== 0x87CEEB);
+        const intersects = raycaster.intersectObject(this.groundMesh);
+        if (intersects.length > 0) {
+            const point = intersects[0].point;
+            GAME.beto.moveTo(point.x, point.z);
+            this.showMark(point.x, point.z);
 
-        if (ground) {
-            const intersects = raycaster.intersectObject(ground);
-            if (intersects.length > 0) {
-                const point = intersects[0].point;
-                this.showMark(point.x, point.z);
-                GAME.beto.moveTo(point.x, point.z);
+            // Buscar auto cercano para estacionar
+            const nearbyCar = GAME.entities.cars.find(car => {
+                if (car.state !== 'waiting') return false;
+                const dist = car.mesh.position.distanceTo(GAME.beto.mesh.position);
+                return dist < 8;
+            });
 
-                const nearbyCar = GAME.entities.cars.find(car =>
-                    car.mesh.position.distanceTo(GAME.beto.mesh.position) < 5 &&
-                    car.state === 'waiting'
-                );
-
-                if (nearbyCar && Date.now() - nearbyCar.arrivalTime > 3000) {
-                    const markerGeo = new THREE.BoxGeometry(2, 0.1, 3);
-                    const markerMat = new THREE.MeshStandardMaterial({ color: 0xFFFF00, transparent: true, opacity: 0.6 });
-                    const marker = new THREE.Mesh(markerGeo, markerMat);
-                    marker.position.set(nearbyCar.mesh.position.x, 1.5, nearbyCar.mesh.position.z);
-                    this.scene.add(marker);
-
-                    setTimeout(() => {
-                        if (marker) {
-                            this.scene.remove(marker);
-                            marker.geometry.dispose();
-                            marker.material.dispose();
-                        }
-                    }, 2000);
-
-                    nearbyCar.markForParking(point.x, point.z);
-                }
+            if (nearbyCar) {
+                nearbyCar.markForParking(point.x, point.z);
+                this.showMessage('¡Auto guiado! 🚗', '#4CAF50');
             }
         }
     }
 
     showMark(x, z) {
-        const markerGeo = new THREE.BoxGeometry(1, 0.2, 1);
-        const markerMat = new THREE.MeshStandardMaterial({ color: 0xFFFF00, transparent: true, opacity: 0.7 });
-        const marker = new THREE.Mesh(markerGeo, markerMat);
-        marker.position.set(x, 0.2, z);
+        const markerMat = new THREE.MeshStandardMaterial({ color: 0xFFFF00, transparent: true, opacity: 0.8 });
+        const marker = new THREE.Mesh(new THREE.BoxGeometry(1, 0.15, 1), markerMat);
+        marker.position.set(x, 0.15, z);
         this.scene.add(marker);
 
-        let opacity = 0.7;
-        const fadeInterval = setInterval(() => {
-            opacity -= 0.1;
-            marker.material.opacity = opacity;
+        let opacity = 0.8;
+        const fade = setInterval(() => {
+            opacity -= 0.08;
+            markerMat.opacity = opacity;
             if (opacity <= 0) {
-                clearInterval(fadeInterval);
+                clearInterval(fade);
                 this.scene.remove(marker);
             }
-        }, 100);
+        }, 80);
+    }
+
+    showMessage(text, color = '#FFD700') {
+        const msg = document.createElement('div');
+        msg.textContent = text;
+        msg.style.cssText = `
+            position: fixed; top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0,0,0,0.75);
+            color: ${color};
+            padding: 14px 28px;
+            border-radius: 10px;
+            font-size: 22px;
+            font-weight: bold;
+            pointer-events: none;
+            z-index: 100;
+            transition: opacity 0.4s, transform 0.4s;
+        `;
+        document.body.appendChild(msg);
+        setTimeout(() => {
+            msg.style.opacity = '0';
+            msg.style.transform = 'translate(-50%, -70%)';
+        }, 800);
+        setTimeout(() => msg.remove(), 1300);
     }
 
     loop(time) {
-        const deltaTime = (time - this.lastTime) / 1000;
+        const deltaTime = Math.min((time - this.lastTime) / 1000, 0.1);
         this.lastTime = time;
 
-        if (GAME.beto) GAME.beto.update(deltaTime);
+        if (GAME.state === 'PLAYING') {
+            if (GAME.beto) GAME.beto.update(deltaTime);
 
-        GAME.entities.cars.forEach(car => car.update(deltaTime));
-        GAME.entities.passengers.forEach(p => p.update(deltaTime));
-        GAME.entities.dogs.forEach(dog => dog.update(deltaTime));
+            GAME.entities.cars.forEach(car => car.update(deltaTime));
+            GAME.entities.dogs.forEach(dog => dog.update(deltaTime));
 
-        GAME.entities.cars = GAME.entities.cars.filter(c => c.visible);
-        GAME.entities.passengers = GAME.entities.passengers.filter(p => p.visible);
-        GAME.entities.dogs = GAME.entities.dogs.filter(d => d.visible);
+            // Detectar perro cerca de Beto
+            GAME.entities.dogs.forEach(dog => {
+                if (dog.state === 'wandering' && GAME.beto) {
+                    const dist = dog.mesh.position.distanceTo(GAME.beto.mesh.position);
+                    if (dist < 3) {
+                        dog.attack();
+                        GAME.money = Math.max(0, GAME.money - 10);
+                        this.showMessage('¡Un perro te mordió! -$10 🐕', '#f44336');
+                    }
+                }
+            });
+
+            // Detectar pasajeros/autos estacionados cerca de Beto para cobrar
+            GAME.entities.cars.forEach(car => {
+                if (car.state === 'parked' && GAME.beto) {
+                    const dist = car.mesh.position.distanceTo(GAME.beto.mesh.position);
+                    if (dist < 4 && !car.collected) {
+                        car.collected = true;
+                        const earned = 20 + Math.floor(Math.random() * 30);
+                        GAME.money += earned;
+                        this.showMessage(`+$${earned} cobrado! 💰`, '#4CAF50');
+                        setTimeout(() => car.leave(), 2000);
+                    }
+                }
+            });
+
+            // Limpiar entidades invisibles
+            GAME.entities.cars = GAME.entities.cars.filter(c => {
+                if (!c.visible) { this.scene.remove(c.mesh); return false; }
+                return true;
+            });
+            GAME.entities.dogs = GAME.entities.dogs.filter(d => {
+                if (!d.visible) { this.scene.remove(d.mesh); return false; }
+                return true;
+            });
+
+            // Game over checks
+            if (GAME.money <= 0) this.gameOver('¡Te quedaste sin plata!');
+        }
 
         this.updateUI();
-
         this.renderer.render(this.scene, this.camera);
-
-        requestAnimationFrame((t) => this.loop(t));
+        requestAnimationFrame(t => this.loop(t));
     }
 
     updateUI() {
-        document.getElementById('money-display').textContent = `$${GAME.money}`;
-        document.getElementById('lives-display').textContent = GAME.lives;
+        const moneyEl = document.getElementById('money-display');
+        const livesEl = document.getElementById('lives-display');
+        const levelEl = document.getElementById('level-display');
+        const carsEl = document.getElementById('cars-display');
 
-        const levelNames = ['La Calle', 'La Plaza', '4 Manzanas'];
-        document.getElementById('level-display').textContent = `${GAME.currentLevel} - ${levelNames[GAME.currentLevel - 1]}`;
-
-        document.getElementById('cars-display').textContent =
-            `${GAME.entities.cars.length}/${GAME.maxCars}`;
+        if (moneyEl) moneyEl.textContent = `$${GAME.money}`;
+        if (livesEl) livesEl.textContent = GAME.lives;
+        if (levelEl) {
+            const names = ['La Calle', 'La Plaza', '4 Manzanas'];
+            levelEl.textContent = `${GAME.currentLevel} - ${names[GAME.currentLevel - 1]}`;
+        }
+        if (carsEl) carsEl.textContent = `${GAME.entities.cars.length}/${GAME.maxCars}`;
     }
 
     startGame(level) {
@@ -772,66 +672,76 @@ class GameEngine {
         GAME.currentLevel = level;
         GAME.money = 100;
         GAME.lives = 3;
-        GAME.carsCount = 0;
+        GAME.entities.cars = [];
+        GAME.entities.dogs = [];
+        GAME.entities.passengers = [];
 
-        while (this.scene.children.length > 0) {
-            this.scene.remove(this.scene.children[0]);
+        // Limpiar la escena de entidades previas (no las luces)
+        const toRemove = [];
+        this.scene.traverse(obj => {
+            if (obj.userData.isEntity) toRemove.push(obj);
+        });
+        toRemove.forEach(obj => this.scene.remove(obj));
+
+        // Si no hay suelo todavía (por si acaso), lo recreamos
+        if (!this.groundMesh || !this.scene.children.includes(this.groundMesh)) {
+            this.setupInitialScene();
         }
 
-        const groundGeo = new THREE.PlaneGeometry(100, 100);
-        const groundMat = new THREE.MeshStandardMaterial({ color: CONFIG.colors.grass, roughness: 0.9 });
-        const ground = new THREE.Mesh(groundGeo, groundMat);
-        ground.rotation.x = -Math.PI / 2;
-        ground.receiveShadow = true;
-        this.scene.add(ground);
-
-        const lineMat = new THREE.MeshStandardMaterial({ color: CONFIG.colors.lineWhite, roughness: 0.5 });
-        for (let x = -35; x <= 35; x += 6) {
-            const lineGeo = new THREE.PlaneGeometry(1, 40);
-            const line = new THREE.Mesh(lineGeo, lineMat);
-            line.rotation.x = -Math.PI / 2;
-            line.position.set(x, 0.05, 0);
-            this.scene.add(line);
-        }
-
+        // Crear a Beto
         GAME.beto = new Beto(this.scene);
-        GAME.beto.mesh.position.set(0, 0.5, 0);
+        GAME.beto.mesh.position.set(0, 0.5, 5);
+        GAME.beto.mesh.userData.isEntity = true;
 
-        const levelConfig = CONFIG.levels[level] || {};
+        // Limpiar intervals anteriores
+        if (GAME.spawnInterval) clearInterval(GAME.spawnInterval);
+        if (GAME.dogInterval) clearInterval(GAME.dogInterval);
 
-        const spawnInterval = setInterval(() => {
-            if (GAME.state !== 'PLAYING' || GAME.entities.cars.length >= GAME.maxCars) {
-                clearInterval(spawnInterval);
-                return;
-            }
+        const cfg = CONFIG.levels[level] || CONFIG.levels[1];
+
+        // Spawn de autos
+        GAME.spawnInterval = setInterval(() => {
+            if (GAME.state !== 'PLAYING') return;
+            if (GAME.entities.cars.length >= GAME.maxCars) return;
+
             const car = new Car(this.scene);
-            car.mesh.position.set((Math.random() - 0.5) * 60, 0.5, -20 + Math.random() * 10);
+            car.mesh.position.set(
+                (Math.random() - 0.5) * 70,
+                0.5,
+                -45 + Math.random() * 5
+            );
+            car.mesh.userData.isEntity = true;
             GAME.entities.cars.push(car);
-        }, levelConfig.spawnRate || 1000);
+        }, cfg.spawnRate);
 
-        const dogInterval = setInterval(() => {
-            if (GAME.state !== 'PLAYING') {
-                clearInterval(dogInterval);
-                return;
-            }
-            if (Math.random() < 0.3) {
+        // Spawn de perros
+        GAME.dogInterval = setInterval(() => {
+            if (GAME.state !== 'PLAYING') return;
+            if (Math.random() < 0.6) {
                 const dog = new Dog(this.scene);
-                dog.mesh.position.set((Math.random() - 0.5) * 60, 0.5, (Math.random() - 0.5) * 60);
+                dog.mesh.position.set(
+                    (Math.random() - 0.5) * 80,
+                    0,
+                    (Math.random() - 0.5) * 80
+                );
+                dog.mesh.userData.isEntity = true;
                 GAME.entities.dogs.push(dog);
             }
-        }, levelConfig.dogRate || 2000);
+        }, cfg.dogRate);
 
-        GAME.spawnInterval = spawnInterval;
-        GAME.dogInterval = dogInterval;
+        console.log(`[BETO] Nivel ${level} iniciado. Beto en escena:`, GAME.beto.mesh.position);
     }
 
     gameOver(reason) {
         GAME.state = 'GAMEOVER';
         if (GAME.spawnInterval) clearInterval(GAME.spawnInterval);
         if (GAME.dogInterval) clearInterval(GAME.dogInterval);
-        document.getElementById('game-over-reason').textContent = reason;
-        document.getElementById('final-score').textContent = GAME.money;
-        document.getElementById('game-over-screen').style.display = 'block';
+        const reasonEl = document.getElementById('game-over-reason');
+        const scoreEl = document.getElementById('final-score');
+        const screen = document.getElementById('game-over-screen');
+        if (reasonEl) reasonEl.textContent = reason;
+        if (scoreEl) scoreEl.textContent = GAME.money;
+        if (screen) screen.style.display = 'block';
     }
 }
 
@@ -839,9 +749,7 @@ class GameEngine {
 // INICIALIZACIÓN
 // =============================================
 
-console.log('[BETO] About to create GameEngine...');
 const game = new GameEngine();
-console.log('[BETO] GameEngine created successfully');
 
 document.getElementById('start-btn').addEventListener('click', () => {
     document.getElementById('start-screen').style.display = 'none';
@@ -860,23 +768,4 @@ document.querySelectorAll('.level-btn').forEach(btn => {
 document.getElementById('restart-btn').addEventListener('click', () => {
     document.getElementById('game-over-screen').style.display = 'none';
     document.getElementById('start-screen').style.display = 'block';
-});
-
-CONFIG.levels[1] = { spawnRate: 800, dogRate: 2500 };
-CONFIG.levels[2] = { spawnRate: 600, dogRate: 1800 };
-CONFIG.levels[3] = { spawnRate: 400, dogRate: 1200 };
-
-document.addEventListener('keydown', (e) => {
-    if (GAME.state === 'PLAYING' && GAME.beto) {
-        switch(e.key.toLowerCase()) {
-            case 'w': GAME.beto.move({ w: true }); break;
-            case 'a': GAME.beto.move({ a: true }); break;
-            case 's': GAME.beto.move({ s: true }); break;
-            case 'd': GAME.beto.move({ d: true }); break;
-            case 'arrowup': GAME.beto.move({ w: true }); break;
-            case 'arrowleft': GAME.beto.move({ a: true }); break;
-            case 'arrowdown': GAME.beto.move({ s: true }); break;
-            case 'arrowright': GAME.beto.move({ d: true }); break;
-        }
-    }
 });
