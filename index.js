@@ -8,422 +8,345 @@ import * as THREE from 'three';
 // CLASES DE ENTIDADES
 // =============================================
 
-class Entity {
+class Beto {
     constructor(scene) {
         this.scene = scene;
-        this.mesh = null;
-        this.position = new THREE.Vector3(0, 0, 0);
-        this.rotation = 0;
-        this.scale = 1;
-        this.visible = true;
-    }
-
-    update(deltaTime) {}
-
-    dispose() {
-        if (this.mesh) {
-            this.scene.remove(this.mesh);
-            if (this.mesh.geometry) this.mesh.geometry.dispose();
-            if (this.mesh.material) {
-                if (Array.isArray(this.mesh.material)) {
-                    this.mesh.material.forEach(m => m.dispose());
-                } else {
-                    this.mesh.material.dispose();
-                }
-            }
-        }
-    }
-}
-
-class Beto extends Entity {
-    constructor(scene) {
-        super(scene);
-        this.speed = 0.15;
-        this.direction = new THREE.Vector3(0, 0, 1);
-        this.isMoving = false;
+        this.speed = 0.12;
         this.targetPosition = null;
         this.walkCycle = 0;
-        this.walkSpeed = 5;
+        this.visible = true;
         this.createModel();
     }
 
     createModel() {
         const group = new THREE.Group();
+        const skin = new THREE.MeshLambertMaterial({ color: 0xFFCCAA });
+        const blue = new THREE.MeshLambertMaterial({ color: 0x0000CC });
+        const yellow = new THREE.MeshLambertMaterial({ color: 0xFFD700 });
+        const black = new THREE.MeshLambertMaterial({ color: 0x111111 });
+        const lightBlue = new THREE.MeshLambertMaterial({ color: 0x4488FF });
 
-        // Cuerpo (azul Boca)
-        const bodyGeo = new THREE.BoxGeometry(1, 1.2, 0.6);
-        const bodyMat = new THREE.MeshStandardMaterial({ color: 0x0000FF });
-        const body = new THREE.Mesh(bodyGeo, bodyMat);
-        body.position.y = 0.6;
-        group.add(body);
+        // Piernas
+        this.legL = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.9, 0.4), lightBlue);
+        this.legL.position.set(-0.25, 0.45, 0);
+        group.add(this.legL);
 
-        // Camiseta amarilla
-        const jerseyGeo = new THREE.BoxGeometry(1.2, 0.8, 0.7);
-        const jerseyMat = new THREE.MeshStandardMaterial({ color: 0xFFD700 });
-        const jersey = new THREE.Mesh(jerseyGeo, jerseyMat);
-        jersey.position.y = 1.0;
-        group.add(jersey);
+        this.legR = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.9, 0.4), lightBlue);
+        this.legR.position.set(0.25, 0.45, 0);
+        group.add(this.legR);
+
+        // Torso
+        const torso = new THREE.Mesh(new THREE.BoxGeometry(1.1, 1.1, 0.6), blue);
+        torso.position.y = 1.3;
+        group.add(torso);
+
+        // Franja amarilla
+        const franja = new THREE.Mesh(new THREE.BoxGeometry(1.15, 0.35, 0.65), yellow);
+        franja.position.y = 1.3;
+        group.add(franja);
+
+        // Brazos
+        this.armL = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.9, 0.35), blue);
+        this.armL.position.set(-0.73, 1.3, 0);
+        group.add(this.armL);
+
+        this.armR = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.9, 0.35), blue);
+        this.armR.position.set(0.73, 1.3, 0);
+        group.add(this.armR);
+
+        // Cuello
+        const neck = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.3, 0.4), skin);
+        neck.position.y = 1.95;
+        group.add(neck);
 
         // Cabeza
-        const headGeo = new THREE.BoxGeometry(0.6, 0.7, 0.6);
-        const headMat = new THREE.MeshStandardMaterial({ color: 0xFFCCAA });
-        const head = new THREE.Mesh(headGeo, headMat);
-        head.position.y = 1.8;
+        const head = new THREE.Mesh(new THREE.BoxGeometry(0.75, 0.8, 0.7), skin);
+        head.position.y = 2.5;
         group.add(head);
 
         // Ojos
-        const eyeGeo = new THREE.BoxGeometry(0.15, 0.15, 0.1);
-        const eyeMat = new THREE.MeshStandardMaterial({ color: 0x000000 });
-        const leftEye = new THREE.Mesh(eyeGeo, eyeMat);
-        leftEye.position.set(-0.2, 1.8, 0.35);
-        group.add(leftEye);
-        const rightEye = new THREE.Mesh(eyeGeo, eyeMat);
-        rightEye.position.set(0.2, 1.8, 0.35);
-        group.add(rightEye);
+        const eyeGeo = new THREE.BoxGeometry(0.15, 0.15, 0.05);
+        const eyeL = new THREE.Mesh(eyeGeo, black);
+        eyeL.position.set(-0.2, 2.55, 0.36);
+        group.add(eyeL);
+        const eyeR = new THREE.Mesh(eyeGeo, black);
+        eyeR.position.set(0.2, 2.55, 0.36);
+        group.add(eyeR);
 
-        // Bermuda
-        const pantsGeo = new THREE.BoxGeometry(0.8, 0.6, 0.7);
-        const pantsMat = new THREE.MeshStandardMaterial({ color: 0x1E90FF });
-        const pants = new THREE.Mesh(pantsGeo, pantsMat);
-        pants.position.y = 0.3;
-        group.add(pants);
+        // Bandana amarilla
+        const bandana = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.2, 0.75), yellow);
+        bandana.position.y = 2.95;
+        group.add(bandana);
 
-        // Manos
-        const handGeo = new THREE.BoxGeometry(0.35, 0.4, 0.35);
-        this.hands = [];
-        for (let i = 0; i < 2; i++) {
-            const hand = new THREE.Mesh(handGeo, headMat);
-            hand.position.set(i === 0 ? -0.7 : 0.7, 1.4, 0);
-            group.add(hand);
-            this.hands.push(hand);
-        }
-
-        // Piernas
-        const legGeo = new THREE.BoxGeometry(0.35, 0.8, 0.35);
-        this.legs = [];
-        for (let i = 0; i < 2; i++) {
-            const leg = new THREE.Mesh(legGeo, pantsMat);
-            leg.position.set(i === 0 ? -0.4 : 0.4, 0.4, 0);
-            group.add(leg);
-            this.legs.push(leg);
-        }
-
-        // Bandana
-        const hatGeo = new THREE.BoxGeometry(1.0, 0.2, 1.0);
-        const hatMat = new THREE.MeshStandardMaterial({ color: 0xFFD700 });
-        const hat = new THREE.Mesh(hatGeo, hatMat);
-        hat.position.y = 2.3;
-        group.add(hat);
+        group.scale.set(1.5, 1.5, 1.5);
 
         this.mesh = group;
         this.scene.add(this.mesh);
     }
 
-    update(deltaTime) {
-        if (!this.visible) return;
-
-        this.walkCycle += deltaTime * this.walkSpeed;
-
-        if (this.legs && this.legs.length > 1) {
-            const offset = Math.sin(this.walkCycle) * 0.3;
-            this.legs[0].rotation.x = offset;
-            this.legs[1].rotation.x = -offset;
-        }
-        if (this.hands && this.hands.length > 1) {
-            const offset = Math.cos(this.walkCycle) * 0.3;
-            this.hands[0].rotation.y = offset;
-            this.hands[1].rotation.y = -offset;
-        }
-
-        if (this.targetPosition) {
-            const direction = new THREE.Vector3()
-                .subVectors(this.targetPosition, this.mesh.position)
-                .normalize();
-            const distance = this.mesh.position.distanceTo(this.targetPosition);
-
-            if (distance > 0.1) {
-                this.mesh.position.add(direction.multiplyScalar(this.speed));
-                this.isMoving = true;
-                this.mesh.rotation.y = Math.atan2(direction.x, direction.z);
-            } else {
-                this.targetPosition = null;
-                this.isMoving = false;
-            }
-        }
-
-        const limit = 45;
-        this.mesh.position.x = Math.max(-limit, Math.min(limit, this.mesh.position.x));
-        this.mesh.position.z = Math.max(-limit, Math.min(limit, this.mesh.position.z));
+    moveTo(x, z) {
+        this.targetPosition = new THREE.Vector3(x, 0, z);
     }
 
     move(keys) {
-        const moveVector = new THREE.Vector3(0, 0, 0);
-        const keyList = Array.isArray(keys) ? keys : Object.keys(keys);
-
-        if (keyList.includes('w') || keyList.includes('arrowup')) moveVector.z -= 1;
-        if (keyList.includes('s') || keyList.includes('arrowdown')) moveVector.z += 1;
-        if (keyList.includes('a') || keyList.includes('arrowleft')) moveVector.x -= 1;
-        if (keyList.includes('d') || keyList.includes('arrowright')) moveVector.x += 1;
-
-        if (moveVector.length() > 0) {
-            moveVector.normalize().multiplyScalar(this.speed * 10);
-            const newPos = this.mesh.position.clone().add(moveVector);
-            newPos.x = Math.max(-45, Math.min(45, newPos.x));
-            newPos.z = Math.max(-45, Math.min(45, newPos.z));
-            this.targetPosition = newPos;
+        const v = new THREE.Vector3();
+        if (keys.w || keys.arrowup)    v.z -= 1;
+        if (keys.s || keys.arrowdown)  v.z += 1;
+        if (keys.a || keys.arrowleft)  v.x -= 1;
+        if (keys.d || keys.arrowright) v.x += 1;
+        if (v.length() > 0) {
+            v.normalize().multiplyScalar(15);
+            const p = this.mesh.position.clone().add(v);
+            p.x = Math.max(-50, Math.min(50, p.x));
+            p.z = Math.max(-50, Math.min(50, p.z));
+            this.targetPosition = p;
         }
     }
 
-    moveTo(x, z) {
-        this.targetPosition = new THREE.Vector3(x, 0.5, z);
+    update(dt) {
+        this.walkCycle += dt * 8;
+        const sw = Math.sin(this.walkCycle) * 0.4;
+        this.legL.rotation.x = sw;
+        this.legR.rotation.x = -sw;
+        this.armL.rotation.x = -sw;
+        this.armR.rotation.x = sw;
+
+        if (this.targetPosition) {
+            const dir = new THREE.Vector3().subVectors(this.targetPosition, this.mesh.position);
+            const dist = dir.length();
+            if (dist > 0.15) {
+                dir.normalize();
+                this.mesh.position.addScaledVector(dir, this.speed);
+                this.mesh.rotation.y = Math.atan2(dir.x, dir.z);
+            } else {
+                this.mesh.position.copy(this.targetPosition);
+                this.targetPosition = null;
+            }
+        }
     }
 }
 
-class Car extends Entity {
+class Car {
     constructor(scene) {
-        super(scene);
-        this.color = Math.random() * 0xffffff;
+        this.scene = scene;
+        this.visible = true;
         this.state = 'waiting';
-        this.parkPosition = null;
         this.arrivalTime = Date.now();
-        this.maxWaitTime = 15000;
-        this.parkStartTime = 0;
+        this.maxWaitTime = 18000;
+        this.parkPosition = null;
+        this.collected = false;
         this.createModel();
     }
 
     createModel() {
         const group = new THREE.Group();
+        const hue = Math.random();
+        const color = new THREE.Color().setHSL(hue, 0.8, 0.5);
+        const mat = new THREE.MeshLambertMaterial({ color });
+        const dark = new THREE.MeshLambertMaterial({ color: 0x222222 });
+        const glass = new THREE.MeshLambertMaterial({ color: 0x88CCFF, transparent: true, opacity: 0.6 });
+        const lightM = new THREE.MeshLambertMaterial({ color: 0xFFFFAA, emissive: new THREE.Color(0xFFFF88) });
 
-        const chassisMat = new THREE.MeshStandardMaterial({ color: this.color, roughness: 0.3, metalness: 0.7 });
-
-        // Chasis
-        const chassis = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.8, 4.5), chassisMat);
+        const chassis = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.7, 4.8), mat);
+        chassis.position.y = 0.35;
         group.add(chassis);
 
-        // Techo
-        const roof = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.6, 2.5), chassisMat);
-        roof.position.y = 1.0;
-        group.add(roof);
+        const cabin = new THREE.Mesh(new THREE.BoxGeometry(2.0, 0.9, 2.6), mat);
+        cabin.position.set(0, 1.1, 0.2);
+        group.add(cabin);
 
-        // Ventanas
-        const windows = new THREE.Mesh(
-            new THREE.BoxGeometry(1.8, 0.25, 2.0),
-            new THREE.MeshStandardMaterial({ color: 0x87CEEB, transparent: true, opacity: 0.5 })
-        );
-        windows.position.y = 1.4;
-        group.add(windows);
+        const windshield = new THREE.Mesh(new THREE.BoxGeometry(1.9, 0.75, 0.1), glass);
+        windshield.position.set(0, 1.1, -1.1);
+        group.add(windshield);
 
-        // Ruedas
-        const wheelGeo = new THREE.CylinderGeometry(0.4, 0.4, 0.2, 16);
-        const wheelMat = new THREE.MeshStandardMaterial({ color: 0x333333 });
-        [[-1.1, 0.4, -1.8], [1.1, 0.4, -1.8], [-1.1, 0.4, 1.8], [1.1, 0.4, 1.8]].forEach(pos => {
-            const wheel = new THREE.Mesh(wheelGeo, wheelMat);
-            wheel.rotation.z = Math.PI / 2;
-            wheel.position.set(...pos);
-            group.add(wheel);
+        const wGeo = new THREE.CylinderGeometry(0.42, 0.42, 0.25, 12);
+        [[-1.15, 0, -1.6], [1.15, 0, -1.6], [-1.15, 0, 1.6], [1.15, 0, 1.6]].forEach(p => {
+            const w = new THREE.Mesh(wGeo, dark);
+            w.rotation.z = Math.PI / 2;
+            w.position.set(...p);
+            group.add(w);
         });
 
-        // Faros
-        const lightMat = new THREE.MeshStandardMaterial({ color: 0xFFFFAA, emissive: 0xFFFFAA, emissiveIntensity: 0.5 });
-        [-0.8, 0.8].forEach(x => {
-            const headlight = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.3, 0.1), lightMat);
-            headlight.position.set(x, 0.6, -2.3);
-            group.add(headlight);
+        [-0.7, 0.7].forEach(x => {
+            const f = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.25, 0.1), lightM);
+            f.position.set(x, 0.5, -2.45);
+            group.add(f);
         });
 
-        // Indicador flotante
-        const indicatorMat = new THREE.MeshStandardMaterial({ color: 0xFFD700, emissive: 0xFFD700, emissiveIntensity: 0.5 });
-        this.indicator = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.6, 0.6), indicatorMat);
-        this.indicator.position.y = 2.8;
+        const indMat = new THREE.MeshLambertMaterial({ color: 0xFFEE00, emissive: new THREE.Color(0xFFDD00) });
+        this.indicator = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.5, 0.5), indMat);
+        this.indicator.position.y = 3.2;
         group.add(this.indicator);
 
         this.mesh = group;
         this.scene.add(this.mesh);
     }
 
-    update(deltaTime) {
+    markForParking(x, z) {
+        this.state = 'parking';
+        this.parkPosition = { x, z };
+        if (this.indicator) this.indicator.visible = false;
+    }
+
+    leave() { this.state = 'leaving'; }
+
+    update(dt) {
         if (!this.visible) return;
 
-        // Animar indicador
-        if (this.indicator) {
-            this.indicator.rotation.y += deltaTime * 2;
-            this.indicator.position.y = 2.8 + Math.sin(Date.now() * 0.003) * 0.2;
+        if (this.indicator && this.state === 'waiting') {
+            this.indicator.rotation.y += dt * 3;
+            this.indicator.position.y = 3.2 + Math.sin(Date.now() * 0.004) * 0.25;
+            this.indicator.visible = Math.floor(Date.now() / 400) % 2 === 0;
         }
 
         switch (this.state) {
             case 'waiting': {
                 const elapsed = Date.now() - this.arrivalTime;
-                if (elapsed >= this.maxWaitTime) {
-                    if (Math.random() < 0.01) this.state = 'leaving';
-                }
+                if (elapsed >= this.maxWaitTime && Math.random() < 0.008) this.state = 'leaving';
                 break;
             }
             case 'parking': {
                 if (this.parkPosition) {
-                    const target = new THREE.Vector3(this.parkPosition.x, 0.5, this.parkPosition.z);
+                    const target = new THREE.Vector3(this.parkPosition.x, 0, this.parkPosition.z);
                     const dir = new THREE.Vector3().subVectors(target, this.mesh.position);
                     const dist = dir.length();
-                    if (dist > 0.3) {
+                    if (dist > 0.4) {
                         dir.normalize();
-                        this.mesh.position.add(dir.multiplyScalar(0.12));
+                        this.mesh.position.addScaledVector(dir, 0.15);
                         this.mesh.rotation.y = Math.atan2(dir.x, dir.z);
                     } else {
                         this.mesh.position.copy(target);
                         this.state = 'parked';
-                        if (this.indicator) this.indicator.visible = false;
                     }
                 }
                 break;
             }
             case 'leaving': {
-                this.mesh.position.z += deltaTime * 8;
-                if (this.mesh.position.z > 70) this.visible = false;
+                this.mesh.position.z += dt * 12;
+                if (this.mesh.position.z > 80) this.visible = false;
                 break;
             }
         }
-
-        this.mesh.position.y = 0.5;
-    }
-
-    markForParking(x, z) {
-        this.state = 'parking';
-        this.parkStartTime = Date.now();
-        this.parkPosition = { x, z };
-    }
-
-    leave() {
-        this.state = 'leaving';
     }
 }
 
-class Dog extends Entity {
+class Dog {
     constructor(scene) {
-        super(scene);
+        this.scene = scene;
+        this.visible = true;
         this.state = 'wandering';
+        this.walkTime = Math.random() * 10;
         this.attackTime = 0;
-        this.walkTime = 0;
         this.createModel();
     }
 
     createModel() {
         const group = new THREE.Group();
+        const fur = new THREE.MeshLambertMaterial({ color: 0x8B6914 });
+        const dark = new THREE.MeshLambertMaterial({ color: 0x5C3D0E });
+        const eyeM = new THREE.MeshLambertMaterial({ color: 0x111111 });
 
-        const bodyMat = new THREE.MeshStandardMaterial({ color: 0x8D6E63 });
-        const darkMat = new THREE.MeshStandardMaterial({ color: 0x5D4037 });
-
-        // Cuerpo
-        const body = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.8, 2.0), bodyMat);
-        body.position.y = 0.6;
+        const body = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.9, 2.2), fur);
+        body.position.y = 0.85;
         group.add(body);
 
-        // Cabeza
-        const head = new THREE.Mesh(new THREE.BoxGeometry(1.0, 0.9, 1.2), darkMat);
-        head.position.set(0, 1.4, 0.8);
+        const head = new THREE.Mesh(new THREE.BoxGeometry(1.1, 1.0, 1.3), dark);
+        head.position.set(0, 1.7, 1.0);
         group.add(head);
 
-        // Orejas
-        [-0.5, 0.5].forEach((x, i) => {
-            const ear = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.7, 0.1), darkMat);
-            ear.position.set(x, 1.7, 0.8);
-            ear.rotation.z = i === 0 ? Math.PI / 6 : -Math.PI / 6;
+        const snout = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.55, 0.6), fur);
+        snout.position.set(0, 1.55, 1.6);
+        group.add(snout);
+
+        [-0.45, 0.45].forEach((x, i) => {
+            const ear = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.55, 0.15), dark);
+            ear.position.set(x, 2.2, 0.9);
+            ear.rotation.z = i === 0 ? 0.3 : -0.3;
             group.add(ear);
         });
 
-        // Ojos
-        const eyeMat = new THREE.MeshStandardMaterial({ color: 0xFFD700 });
-        [-0.35, 0.35].forEach(x => {
-            const eye = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.2, 0.1), eyeMat);
-            eye.position.set(x, 1.4, 1.15);
+        [-0.3, 0.3].forEach(x => {
+            const eye = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.18, 0.1), eyeM);
+            eye.position.set(x, 1.75, 1.6);
             group.add(eye);
         });
 
-        // Patas (guardamos refs para animar)
-        const legGeo = new THREE.BoxGeometry(0.25, 0.7, 0.25);
         this.patas = [];
-        [[-0.5, 0.4, -0.7], [0.5, 0.4, -0.7], [-0.5, 0.4, 0.8], [0.5, 0.4, 0.8]].forEach(pos => {
-            const leg = new THREE.Mesh(legGeo, darkMat);
-            leg.position.set(...pos);
+        const legGeo = new THREE.BoxGeometry(0.3, 0.75, 0.3);
+        [[-0.55, 0.38, -0.7], [0.55, 0.38, -0.7], [-0.55, 0.38, 0.75], [0.55, 0.38, 0.75]].forEach(p => {
+            const leg = new THREE.Mesh(legGeo, dark);
+            leg.position.set(...p);
             group.add(leg);
             this.patas.push(leg);
         });
 
-        // Cola
-        const tail = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.2, 0.8, 8), darkMat);
-        tail.position.set(0, 1.2, -1.1);
-        tail.rotation.x = -0.5;
-        group.add(tail);
-        this.tail = tail;
+        this.cola = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.18, 0.9, 8), fur);
+        this.cola.position.set(0, 1.3, -1.2);
+        this.cola.rotation.x = -0.7;
+        group.add(this.cola);
 
+        group.scale.set(1.2, 1.2, 1.2);
         this.mesh = group;
         this.scene.add(this.mesh);
-    }
-
-    update(deltaTime) {
-        if (!this.visible) return;
-
-        switch (this.state) {
-            case 'wandering': {
-                const speed = 0.06;
-                if (Math.random() < 0.02) {
-                    this.mesh.rotation.y += (Math.random() - 0.5) * Math.PI / 2;
-                }
-                this.mesh.position.x += Math.sin(this.mesh.rotation.y) * speed;
-                this.mesh.position.z += Math.cos(this.mesh.rotation.y) * speed;
-
-                const limit = 44;
-                this.mesh.position.x = Math.max(-limit, Math.min(limit, this.mesh.position.x));
-                this.mesh.position.z = Math.max(-limit, Math.min(limit, this.mesh.position.z));
-
-                // Animar patas
-                this.walkTime += deltaTime * 6;
-                if (this.patas.length >= 4) {
-                    this.patas[0].rotation.x = Math.sin(this.walkTime) * 0.4;
-                    this.patas[1].rotation.x = -Math.sin(this.walkTime) * 0.4;
-                    this.patas[2].rotation.x = -Math.sin(this.walkTime) * 0.4;
-                    this.patas[3].rotation.x = Math.sin(this.walkTime) * 0.4;
-                }
-                if (this.tail) this.tail.rotation.z = Math.sin(this.walkTime * 2) * 0.3;
-                break;
-            }
-            case 'attacking': {
-                if (Date.now() - this.attackTime > 1500) this.state = 'leaving';
-                break;
-            }
-            case 'leaving': {
-                this.mesh.position.z += deltaTime * 6;
-                if (this.mesh.position.z > 70) this.visible = false;
-                break;
-            }
-        }
-
-        this.mesh.position.y = 0;
     }
 
     attack() {
         this.state = 'attacking';
         this.attackTime = Date.now();
-        for (let i = 0; i < 3; i++) {
+        for (let i = 0; i < 4; i++) {
             setTimeout(() => {
                 if (this.visible) {
-                    this.mesh.scale.set(1.5, 1.5, 1.5);
-                    setTimeout(() => { if (this.visible) this.mesh.scale.set(1, 1, 1); }, 200);
+                    this.mesh.scale.set(2.0, 2.0, 2.0);
+                    setTimeout(() => { if (this.visible) this.mesh.scale.set(1.2, 1.2, 1.2); }, 150);
                 }
-            }, i * 350);
+            }, i * 280);
         }
+    }
+
+    update(dt) {
+        if (!this.visible) return;
+        this.walkTime += dt * 5;
+
+        switch (this.state) {
+            case 'wandering': {
+                if (Math.random() < 0.018) this.mesh.rotation.y += (Math.random() - 0.5) * Math.PI * 0.7;
+                const spd = 0.07;
+                this.mesh.position.x += Math.sin(this.mesh.rotation.y) * spd;
+                this.mesh.position.z += Math.cos(this.mesh.rotation.y) * spd;
+                this.mesh.position.x = Math.max(-50, Math.min(50, this.mesh.position.x));
+                this.mesh.position.z = Math.max(-50, Math.min(50, this.mesh.position.z));
+                const sw = Math.sin(this.walkTime) * 0.45;
+                if (this.patas.length === 4) {
+                    this.patas[0].rotation.x = sw;
+                    this.patas[1].rotation.x = -sw;
+                    this.patas[2].rotation.x = -sw;
+                    this.patas[3].rotation.x = sw;
+                }
+                if (this.cola) this.cola.rotation.z = Math.sin(this.walkTime * 2.5) * 0.4;
+                break;
+            }
+            case 'attacking': {
+                if (Date.now() - this.attackTime > 1200) this.state = 'leaving';
+                break;
+            }
+            case 'leaving': {
+                this.mesh.position.z += dt * 10;
+                if (this.mesh.position.z > 80) this.visible = false;
+                break;
+            }
+        }
+        this.mesh.position.y = 0;
     }
 }
 
 // =============================================
-// MOTOR DEL JUEGO
+// MOTOR
 // =============================================
 
-const CONFIG = {
-    colors: { grass: 0x4CAF50, lineWhite: 0xFFFFFF },
-    levels: {
-        1: { spawnRate: 2000, dogRate: 4000 },
-        2: { spawnRate: 1200, dogRate: 2500 },
-        3: { spawnRate: 700, dogRate: 1500 }
-    }
+const LEVELS = {
+    1: { spawnRate: 2500, dogRate: 5000, label: 'La Calle' },
+    2: { spawnRate: 1500, dogRate: 3000, label: 'La Plaza' },
+    3: { spawnRate: 800,  dogRate: 1800, label: '4 Manzanas' },
 };
 
 const GAME = {
@@ -431,81 +354,46 @@ const GAME = {
     currentLevel: 1,
     money: 100,
     lives: 3,
-    maxCars: 15,
-    entities: { cars: [], passengers: [], dogs: [] },
+    maxCars: 12,
+    entities: { cars: [], dogs: [] },
     keys: {},
     beto: null,
     spawnInterval: null,
-    dogInterval: null
+    dogInterval: null,
 };
 
 class GameEngine {
     constructor() {
         this.canvas = document.getElementById('game-canvas');
+
         this.scene = new THREE.Scene();
         this.scene.background = new THREE.Color(0x87CEEB);
+        this.scene.fog = new THREE.Fog(0x87CEEB, 90, 160);
 
-        this.camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
-        this.camera.position.set(0, 25, 45);
-        this.camera.lookAt(0, 0, -5);
+        this.camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.1, 500);
+        this.camera.position.set(0, 28, 38);
+        this.camera.lookAt(0, 0, -8);
 
         this.renderer = new THREE.WebGLRenderer({ canvas: this.canvas, antialias: true });
         this.renderer.setSize(window.innerWidth, window.innerHeight);
         this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
         this.renderer.shadowMap.enabled = true;
 
-        this.groundMesh = null;
-
-        this.setupLights();
-        this.setupInitialScene();
-        this.setupEvents();
-
-        this.lastTime = performance.now();
-        requestAnimationFrame(t => this.loop(t));
-    }
-
-    setupLights() {
-        const ambient = new THREE.AmbientLight(0xffffff, 0.7);
+        // LUCES — siempre en escena, nunca se borran
+        const ambient = new THREE.AmbientLight(0xffffff, 0.85);
+        ambient.name = 'ambient';
         this.scene.add(ambient);
 
-        const sun = new THREE.DirectionalLight(0xffffff, 1.0);
-        sun.position.set(15, 30, 15);
+        const sun = new THREE.DirectionalLight(0xFFF5E0, 1.1);
+        sun.position.set(20, 40, 20);
         sun.castShadow = true;
+        sun.name = 'sun';
         this.scene.add(sun);
-    }
 
-    setupInitialScene() {
-        // Suelo
-        const groundGeo = new THREE.PlaneGeometry(120, 120);
-        const groundMat = new THREE.MeshStandardMaterial({ color: CONFIG.colors.grass, roughness: 0.9 });
-        this.groundMesh = new THREE.Mesh(groundGeo, groundMat);
-        this.groundMesh.rotation.x = -Math.PI / 2;
-        this.groundMesh.receiveShadow = true;
-        this.groundMesh.userData.isGround = true;
-        this.scene.add(this.groundMesh);
+        // Escena estática
+        this.buildStaticScene();
 
-        // Líneas de estacionamiento
-        this.createParkingLines();
-    }
-
-    createParkingLines() {
-        const lineMat = new THREE.MeshStandardMaterial({ color: CONFIG.colors.lineWhite, roughness: 0.5 });
-        for (let x = -36; x <= 36; x += 6) {
-            const line = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 8), lineMat);
-            line.rotation.x = -Math.PI / 2;
-            line.position.set(x, 0.05, -10);
-            this.scene.add(line);
-        }
-        // Líneas horizontales delimitadoras
-        for (let z of [-6, -14]) {
-            const line = new THREE.Mesh(new THREE.PlaneGeometry(80, 0.5), lineMat);
-            line.rotation.x = -Math.PI / 2;
-            line.position.set(0, 0.05, z);
-            this.scene.add(line);
-        }
-    }
-
-    setupEvents() {
+        // Eventos
         window.addEventListener('resize', () => {
             this.camera.aspect = window.innerWidth / window.innerHeight;
             this.camera.updateProjectionMatrix();
@@ -513,127 +401,203 @@ class GameEngine {
         });
 
         document.addEventListener('keydown', e => {
-            GAME.keys[e.key.toLowerCase()] = true;
-            if (GAME.state === 'PLAYING' && GAME.beto) {
-                GAME.beto.move(Object.keys(GAME.keys).filter(k => GAME.keys[k]));
-            }
+            const k = e.key.toLowerCase()
+                .replace('arrow', '')
+                .replace('arrowup','w').replace('arrowdown','s')
+                .replace('arrowleft','a').replace('arrowright','d');
+            GAME.keys[k] = true;
+            if (GAME.state === 'PLAYING' && GAME.beto) GAME.beto.move(GAME.keys);
         });
-
         document.addEventListener('keyup', e => {
-            GAME.keys[e.key.toLowerCase()] = false;
+            const k = e.key.toLowerCase();
+            delete GAME.keys[k];
+            delete GAME.keys[k.replace('arrow','')];
         });
 
-        this.canvas.addEventListener('click', e => this.onCanvasClick(e));
+        this.canvas.addEventListener('click', e => this.onClick(e));
+
+        this.lastTime = performance.now();
+        requestAnimationFrame(t => this.loop(t));
     }
 
-    onCanvasClick(e) {
+    buildStaticScene() {
+        // Suelo verde grande
+        const groundGeo = new THREE.PlaneGeometry(160, 160);
+        const groundMat = new THREE.MeshLambertMaterial({ color: 0x4CAF50 });
+        this.ground = new THREE.Mesh(groundGeo, groundMat);
+        this.ground.rotation.x = -Math.PI / 2;
+        this.ground.receiveShadow = true;
+        this.scene.add(this.ground);
+
+        // Zona de asfalto
+        const asphalt = new THREE.Mesh(
+            new THREE.PlaneGeometry(90, 35),
+            new THREE.MeshLambertMaterial({ color: 0x444444 })
+        );
+        asphalt.rotation.x = -Math.PI / 2;
+        asphalt.position.set(0, 0.02, -8);
+        this.scene.add(asphalt);
+
+        // Líneas de estacionamiento
+        const lineMat = new THREE.MeshLambertMaterial({ color: 0xFFFFFF });
+        for (let x = -40; x <= 40; x += 8) {
+            const line = new THREE.Mesh(new THREE.PlaneGeometry(0.4, 14), lineMat);
+            line.rotation.x = -Math.PI / 2;
+            line.position.set(x, 0.04, -8);
+            this.scene.add(line);
+        }
+        [-1, -15].forEach(z => {
+            const line = new THREE.Mesh(new THREE.PlaneGeometry(90, 0.4), lineMat);
+            line.rotation.x = -Math.PI / 2;
+            line.position.set(0, 0.04, z);
+            this.scene.add(line);
+        });
+
+        // Edificio al fondo
+        const bld = new THREE.Mesh(
+            new THREE.BoxGeometry(20, 24, 9),
+            new THREE.MeshLambertMaterial({ color: 0xE8D5B0 })
+        );
+        bld.position.set(0, 12, -55);
+        this.scene.add(bld);
+
+        // Ventanas del edificio
+        const winMat = new THREE.MeshLambertMaterial({ color: 0xAADDFF, emissive: new THREE.Color(0x224466) });
+        for (let wy = 4; wy <= 20; wy += 4) {
+            [-6, -2, 2, 6].forEach(wx => {
+                const win = new THREE.Mesh(new THREE.BoxGeometry(2.5, 2.5, 0.3), winMat);
+                win.position.set(wx, wy, -50.6);
+                this.scene.add(win);
+            });
+        }
+
+        // Señal azul en edificio
+        const sign = new THREE.Mesh(
+            new THREE.BoxGeometry(16, 3, 0.5),
+            new THREE.MeshLambertMaterial({ color: 0x003399 })
+        );
+        sign.position.set(0, 22, -50.8);
+        this.scene.add(sign);
+
+        // Faroles
+        const poleMat = new THREE.MeshLambertMaterial({ color: 0x888888 });
+        const lampMat = new THREE.MeshLambertMaterial({ color: 0xFFFF99, emissive: new THREE.Color(0xFFFF66) });
+        [-36, -20, 0, 20, 36].forEach(x => {
+            const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.2, 9, 8), poleMat);
+            pole.position.set(x, 4.5, 14);
+            this.scene.add(pole);
+            const lamp = new THREE.Mesh(new THREE.BoxGeometry(1, 0.6, 1), lampMat);
+            lamp.position.set(x, 9.3, 14);
+            this.scene.add(lamp);
+        });
+
+        // Árboles
+        const trunkMat = new THREE.MeshLambertMaterial({ color: 0x6D4C41 });
+        const leavesMat = new THREE.MeshLambertMaterial({ color: 0x2E7D32 });
+        [-50, -42, 42, 50].forEach(x => {
+            const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.5, 4, 8), trunkMat);
+            trunk.position.set(x, 2, 8);
+            this.scene.add(trunk);
+            const leaves = new THREE.Mesh(new THREE.SphereGeometry(3, 8, 6), leavesMat);
+            leaves.position.set(x, 7, 8);
+            this.scene.add(leaves);
+        });
+    }
+
+    onClick(e) {
         if (GAME.state !== 'PLAYING' || !GAME.beto) return;
 
         const rect = this.canvas.getBoundingClientRect();
-        const x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
-        const y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+        const nx = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+        const ny = -((e.clientY - rect.top) / rect.height) * 2 + 1;
 
-        const raycaster = new THREE.Raycaster();
-        raycaster.setFromCamera(new THREE.Vector2(x, y), this.camera);
+        const ray = new THREE.Raycaster();
+        ray.setFromCamera(new THREE.Vector2(nx, ny), this.camera);
+        const hits = ray.intersectObject(this.ground);
 
-        const intersects = raycaster.intersectObject(this.groundMesh);
-        if (intersects.length > 0) {
-            const point = intersects[0].point;
-            GAME.beto.moveTo(point.x, point.z);
-            this.showMark(point.x, point.z);
+        if (hits.length > 0) {
+            const pt = hits[0].point;
+            GAME.beto.moveTo(pt.x, pt.z);
+            this.spawnMark(pt.x, pt.z);
 
-            // Buscar auto cercano para estacionar
-            const nearbyCar = GAME.entities.cars.find(car => {
-                if (car.state !== 'waiting') return false;
+            // ¿Auto cercano para guiar?
+            for (const car of GAME.entities.cars) {
+                if (car.state !== 'waiting') continue;
                 const dist = car.mesh.position.distanceTo(GAME.beto.mesh.position);
-                return dist < 8;
-            });
-
-            if (nearbyCar) {
-                nearbyCar.markForParking(point.x, point.z);
-                this.showMessage('¡Auto guiado! 🚗', '#4CAF50');
+                if (dist < 12) {
+                    car.markForParking(pt.x, pt.z);
+                    this.toast('¡Auto guiado! 🚗', '#4CAF50');
+                    break;
+                }
             }
         }
     }
 
-    showMark(x, z) {
-        const markerMat = new THREE.MeshStandardMaterial({ color: 0xFFFF00, transparent: true, opacity: 0.8 });
-        const marker = new THREE.Mesh(new THREE.BoxGeometry(1, 0.15, 1), markerMat);
-        marker.position.set(x, 0.15, z);
-        this.scene.add(marker);
-
-        let opacity = 0.8;
-        const fade = setInterval(() => {
-            opacity -= 0.08;
-            markerMat.opacity = opacity;
-            if (opacity <= 0) {
-                clearInterval(fade);
-                this.scene.remove(marker);
-            }
-        }, 80);
+    spawnMark(x, z) {
+        const mat = new THREE.MeshLambertMaterial({ color: 0xFFFF00, transparent: true, opacity: 0.9 });
+        const mark = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.12, 1.2), mat);
+        mark.position.set(x, 0.1, z);
+        this.scene.add(mark);
+        let op = 0.9;
+        const iv = setInterval(() => {
+            op -= 0.08;
+            mat.opacity = op;
+            if (op <= 0) { clearInterval(iv); this.scene.remove(mark); }
+        }, 70);
     }
 
-    showMessage(text, color = '#FFD700') {
-        const msg = document.createElement('div');
-        msg.textContent = text;
-        msg.style.cssText = `
-            position: fixed; top: 50%; left: 50%;
-            transform: translate(-50%, -50%);
-            background: rgba(0,0,0,0.75);
-            color: ${color};
-            padding: 14px 28px;
-            border-radius: 10px;
-            font-size: 22px;
-            font-weight: bold;
-            pointer-events: none;
-            z-index: 100;
-            transition: opacity 0.4s, transform 0.4s;
+    toast(text, color = '#FFD700') {
+        const el = document.createElement('div');
+        el.textContent = text;
+        el.style.cssText = `
+            position:fixed;top:45%;left:50%;transform:translate(-50%,-50%);
+            background:rgba(0,0,0,.78);color:${color};
+            padding:12px 26px;border-radius:10px;font-size:22px;font-weight:bold;
+            pointer-events:none;z-index:200;transition:opacity .5s,top .5s;
         `;
-        document.body.appendChild(msg);
-        setTimeout(() => {
-            msg.style.opacity = '0';
-            msg.style.transform = 'translate(-50%, -70%)';
-        }, 800);
-        setTimeout(() => msg.remove(), 1300);
+        document.body.appendChild(el);
+        setTimeout(() => { el.style.opacity = '0'; el.style.top = '35%'; }, 700);
+        setTimeout(() => el.remove(), 1300);
     }
 
     loop(time) {
-        const deltaTime = Math.min((time - this.lastTime) / 1000, 0.1);
+        const dt = Math.min((time - this.lastTime) / 1000, 0.1);
         this.lastTime = time;
 
         if (GAME.state === 'PLAYING') {
-            if (GAME.beto) GAME.beto.update(deltaTime);
+            if (GAME.beto) GAME.beto.update(dt);
+            GAME.entities.cars.forEach(c => c.update(dt));
+            GAME.entities.dogs.forEach(d => d.update(dt));
 
-            GAME.entities.cars.forEach(car => car.update(deltaTime));
-            GAME.entities.dogs.forEach(dog => dog.update(deltaTime));
-
-            // Detectar perro cerca de Beto
-            GAME.entities.dogs.forEach(dog => {
-                if (dog.state === 'wandering' && GAME.beto) {
-                    const dist = dog.mesh.position.distanceTo(GAME.beto.mesh.position);
-                    if (dist < 3) {
-                        dog.attack();
-                        GAME.money = Math.max(0, GAME.money - 10);
-                        this.showMessage('¡Un perro te mordió! -$10 🐕', '#f44336');
+            if (GAME.beto) {
+                // Cobrar autos estacionados
+                GAME.entities.cars.forEach(car => {
+                    if (car.state === 'parked' && !car.collected) {
+                        const dist = car.mesh.position.distanceTo(GAME.beto.mesh.position);
+                        if (dist < 6) {
+                            car.collected = true;
+                            const gain = 15 + Math.floor(Math.random() * 35);
+                            GAME.money += gain;
+                            this.toast(`+$${gain} 💰`, '#FFD700');
+                            setTimeout(() => car.leave(), 1500);
+                        }
                     }
-                }
-            });
+                });
 
-            // Detectar pasajeros/autos estacionados cerca de Beto para cobrar
-            GAME.entities.cars.forEach(car => {
-                if (car.state === 'parked' && GAME.beto) {
-                    const dist = car.mesh.position.distanceTo(GAME.beto.mesh.position);
-                    if (dist < 4 && !car.collected) {
-                        car.collected = true;
-                        const earned = 20 + Math.floor(Math.random() * 30);
-                        GAME.money += earned;
-                        this.showMessage(`+$${earned} cobrado! 💰`, '#4CAF50');
-                        setTimeout(() => car.leave(), 2000);
+                // Perros atacan a Beto
+                GAME.entities.dogs.forEach(dog => {
+                    if (dog.state === 'wandering') {
+                        const dist = dog.mesh.position.distanceTo(GAME.beto.mesh.position);
+                        if (dist < 4) {
+                            dog.attack();
+                            GAME.money = Math.max(0, GAME.money - 15);
+                            this.toast('¡Mordida! -$15 🐕', '#FF5252');
+                        }
                     }
-                }
-            });
+                });
+            }
 
-            // Limpiar entidades invisibles
+            // Limpiar invisibles
             GAME.entities.cars = GAME.entities.cars.filter(c => {
                 if (!c.visible) { this.scene.remove(c.mesh); return false; }
                 return true;
@@ -643,110 +607,96 @@ class GameEngine {
                 return true;
             });
 
-            // Game over checks
-            if (GAME.money <= 0) this.gameOver('¡Te quedaste sin plata!');
+            if (GAME.money <= 0) this.gameOver('¡Te quedaste sin plata! 💸');
         }
 
-        this.updateUI();
+        this.updateHUD();
         this.renderer.render(this.scene, this.camera);
         requestAnimationFrame(t => this.loop(t));
     }
 
-    updateUI() {
-        const moneyEl = document.getElementById('money-display');
-        const livesEl = document.getElementById('lives-display');
-        const levelEl = document.getElementById('level-display');
-        const carsEl = document.getElementById('cars-display');
-
-        if (moneyEl) moneyEl.textContent = `$${GAME.money}`;
-        if (livesEl) livesEl.textContent = GAME.lives;
-        if (levelEl) {
-            const names = ['La Calle', 'La Plaza', '4 Manzanas'];
-            levelEl.textContent = `${GAME.currentLevel} - ${names[GAME.currentLevel - 1]}`;
-        }
-        if (carsEl) carsEl.textContent = `${GAME.entities.cars.length}/${GAME.maxCars}`;
+    updateHUD() {
+        const $ = id => document.getElementById(id);
+        if ($('money-display'))  $('money-display').textContent  = `$${GAME.money}`;
+        if ($('lives-display'))  $('lives-display').textContent  = GAME.lives;
+        if ($('cars-display'))   $('cars-display').textContent   = `${GAME.entities.cars.length}/${GAME.maxCars}`;
+        if ($('level-display'))  $('level-display').textContent  = `${GAME.currentLevel} - ${LEVELS[GAME.currentLevel].label}`;
     }
 
     startGame(level) {
+        // Quitar entidades anteriores de la escena
+        GAME.entities.cars.forEach(c => this.scene.remove(c.mesh));
+        GAME.entities.dogs.forEach(d => this.scene.remove(d.mesh));
+        if (GAME.beto) this.scene.remove(GAME.beto.mesh);
+
         GAME.state = 'PLAYING';
         GAME.currentLevel = level;
         GAME.money = 100;
         GAME.lives = 3;
         GAME.entities.cars = [];
         GAME.entities.dogs = [];
-        GAME.entities.passengers = [];
+        GAME.keys = {};
 
-        // Limpiar la escena de entidades previas (no las luces)
-        const toRemove = [];
-        this.scene.traverse(obj => {
-            if (obj.userData.isEntity) toRemove.push(obj);
-        });
-        toRemove.forEach(obj => this.scene.remove(obj));
+        clearInterval(GAME.spawnInterval);
+        clearInterval(GAME.dogInterval);
 
-        // Si no hay suelo todavía (por si acaso), lo recreamos
-        if (!this.groundMesh || !this.scene.children.includes(this.groundMesh)) {
-            this.setupInitialScene();
+        // Beto aparece en el centro de la zona de estacionamiento
+        GAME.beto = new Beto(this.scene);
+        GAME.beto.mesh.position.set(0, 0, -5);
+
+        const cfg = LEVELS[level];
+
+        // Spawnear algunos autos de inmediato para que no quede vacío
+        for (let i = 0; i < 3; i++) {
+            setTimeout(() => {
+                if (GAME.state !== 'PLAYING') return;
+                const car = new Car(this.scene);
+                car.mesh.position.set(
+                    -32 + i * 16 + (Math.random() - 0.5) * 4,
+                    0,
+                    -28 + (Math.random() - 0.5) * 4
+                );
+                GAME.entities.cars.push(car);
+            }, i * 300);
         }
 
-        // Crear a Beto
-        GAME.beto = new Beto(this.scene);
-        GAME.beto.mesh.position.set(0, 0.5, 5);
-        GAME.beto.mesh.userData.isEntity = true;
-
-        // Limpiar intervals anteriores
-        if (GAME.spawnInterval) clearInterval(GAME.spawnInterval);
-        if (GAME.dogInterval) clearInterval(GAME.dogInterval);
-
-        const cfg = CONFIG.levels[level] || CONFIG.levels[1];
-
-        // Spawn de autos
+        // Intervalo de spawn de autos
         GAME.spawnInterval = setInterval(() => {
             if (GAME.state !== 'PLAYING') return;
             if (GAME.entities.cars.length >= GAME.maxCars) return;
-
             const car = new Car(this.scene);
             car.mesh.position.set(
                 (Math.random() - 0.5) * 70,
-                0.5,
-                -45 + Math.random() * 5
+                0,
+                -38 + (Math.random() - 0.5) * 6
             );
-            car.mesh.userData.isEntity = true;
             GAME.entities.cars.push(car);
         }, cfg.spawnRate);
 
-        // Spawn de perros
+        // Intervalo de spawn de perros
         GAME.dogInterval = setInterval(() => {
             if (GAME.state !== 'PLAYING') return;
-            if (Math.random() < 0.6) {
-                const dog = new Dog(this.scene);
-                dog.mesh.position.set(
-                    (Math.random() - 0.5) * 80,
-                    0,
-                    (Math.random() - 0.5) * 80
-                );
-                dog.mesh.userData.isEntity = true;
-                GAME.entities.dogs.push(dog);
-            }
+            const dog = new Dog(this.scene);
+            const sides = [[55,-10],[-55,-10],[0,-48],[0,18]];
+            const [px, pz] = sides[Math.floor(Math.random() * sides.length)];
+            dog.mesh.position.set(px, 0, pz);
+            dog.mesh.rotation.y = Math.atan2(-px, -pz - (-8));
+            GAME.entities.dogs.push(dog);
         }, cfg.dogRate);
-
-        console.log(`[BETO] Nivel ${level} iniciado. Beto en escena:`, GAME.beto.mesh.position);
     }
 
     gameOver(reason) {
         GAME.state = 'GAMEOVER';
-        if (GAME.spawnInterval) clearInterval(GAME.spawnInterval);
-        if (GAME.dogInterval) clearInterval(GAME.dogInterval);
-        const reasonEl = document.getElementById('game-over-reason');
-        const scoreEl = document.getElementById('final-score');
-        const screen = document.getElementById('game-over-screen');
-        if (reasonEl) reasonEl.textContent = reason;
-        if (scoreEl) scoreEl.textContent = GAME.money;
-        if (screen) screen.style.display = 'block';
+        clearInterval(GAME.spawnInterval);
+        clearInterval(GAME.dogInterval);
+        document.getElementById('game-over-reason').textContent = reason;
+        document.getElementById('final-score').textContent = GAME.money;
+        document.getElementById('game-over-screen').style.display = 'block';
     }
 }
 
 // =============================================
-// INICIALIZACIÓN
+// INICIO
 // =============================================
 
 const game = new GameEngine();
