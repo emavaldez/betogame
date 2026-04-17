@@ -1,0 +1,18 @@
+{
+  "name": "beto-game",
+  "version": "1.0.0",
+  "description": "La Vida de Beto - Juego web estilo Parking Manager",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "three": "^0.128.0"
+  },
+  "devDependencies": {
+    "vite": "^4.5.0"
+  }
+}
