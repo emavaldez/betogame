@@ -610,9 +610,30 @@ const GAME = {
 class GameEngine {
     constructor() {
         this.canvas = document.getElementById('game-canvas');
+
         this.scene = new THREE.Scene();
+        this.scene.background = new THREE.Color(0x87CEEB); // Sky blue background
+
         this.camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
-        this.renderer = new THREE.WebGLRenderer({ canvas: this.canvas, antialias: true });
+
+        try {
+            this.renderer = new THREE.WebGLRenderer({ canvas: this.canvas, antialias: true });
+            // Force WebGL context to be created immediately
+            const gl = this.renderer.getContext();
+            if (!gl) {
+                throw new Error('WebGL context not created');
+            }
+        } catch(e) {
+            console.error('[BETO] WebGL failed, trying fallback:', e.message);
+            // Try without antialias as fallback
+            try {
+                this.renderer = new THREE.WebGLRenderer({ canvas: this.canvas, antialias: false });
+            } catch(e2) {
+                console.error('[BETO] All rendering failed:', e2.message);
+                return;
+            }
+        }
+
         this.beto = null;
         this.levelManager = null;
         this.init();
@@ -818,7 +839,9 @@ class GameEngine {
 // INICIALIZACIÓN
 // =============================================
 
+console.log('[BETO] About to create GameEngine...');
 const game = new GameEngine();
+console.log('[BETO] GameEngine created successfully');
 
 document.getElementById('start-btn').addEventListener('click', () => {
     document.getElementById('start-screen').style.display = 'none';
