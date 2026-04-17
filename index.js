@@ -1,6 +1,8 @@
 // =============================================
-// LA VIDA DE BETO - Juego Principal
+// LA VIDA DE BETO - Juego Principal (ES Module)
 // =============================================
+
+import * as THREE from 'three';
 
 // =============================================
 // CLASES DE ENTIDADES
