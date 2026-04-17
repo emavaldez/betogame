@@ -1,8 +1,11 @@
 // =============================================
-// INTEGRACIÓN DEL JUEGO "LA VIDA DE BETO"
+// LA VIDA DE BETO - Juego Principal
 // =============================================
 
-// Cargar módulos de entidades
+// =============================================
+// CLASES DE ENTIDADES
+// =============================================
+
 class Entity {
     constructor(scene) {
         this.scene = scene;
@@ -574,7 +577,10 @@ class Dog extends Entity {
     }
 }
 
-// Configuración global
+// =============================================
+// MOTOR DEL JUEGO
+// =============================================
+
 const CONFIG = {
     playerSpeed: 0.15,
     cameraHeight: 20,
@@ -583,7 +589,6 @@ const CONFIG = {
     levels: {}
 };
 
-// Estado del juego
 const GAME = {
     state: 'START',
     currentLevel: 1,
@@ -595,7 +600,9 @@ const GAME = {
     keys: {},
     mouse: { x: 0, y: 0 },
     cameraAngle: 0,
-    lastTime: 0
+    lastTime: 0,
+    spawnInterval: null,
+    dogInterval: null
 };
 
 class GameEngine {
@@ -652,7 +659,6 @@ class GameEngine {
         const raycaster = new THREE.Raycaster();
         raycaster.setFromCamera(new THREE.Vector2(x, y), this.camera);
 
-        // Buscar intersecciones con el suelo
         const ground = this.scene.children.find(c => c.geometry.type === 'PlaneGeometry' && c.material.color.getHex() !== 0x87CEEB);
 
         if (ground) {
@@ -662,14 +668,12 @@ class GameEngine {
                 this.showMark(point.x, point.z);
                 GAME.beto.moveTo(point.x, point.z);
 
-                // Verificar si hay un auto cerca
                 const nearbyCar = GAME.entities.cars.find(car =>
                     car.mesh.position.distanceTo(GAME.beto.mesh.position) < 5 &&
                     car.state === 'waiting'
                 );
 
                 if (nearbyCar && Date.now() - nearbyCar.arrivalTime > 3000) {
-                    // Auto está listo para ser marcado
                     const markerGeo = new THREE.BoxGeometry(2, 0.1, 3);
                     const markerMat = new THREE.MeshStandardMaterial({ color: 0xFFFF00, transparent: true, opacity: 0.6 });
                     const marker = new THREE.Mesh(markerGeo, markerMat);
@@ -684,7 +688,6 @@ class GameEngine {
                         }
                     }, 2000);
 
-                    // Estacionar auto
                     nearbyCar.markForParking(point.x, point.z);
                 }
             }
@@ -719,7 +722,6 @@ class GameEngine {
         GAME.entities.passengers.forEach(p => p.update(deltaTime));
         GAME.entities.dogs.forEach(dog => dog.update(deltaTime));
 
-        // Limpiar entidades invisibles
         GAME.entities.cars = GAME.entities.cars.filter(c => c.visible);
         GAME.entities.passengers = GAME.entities.passengers.filter(p => p.visible);
         GAME.entities.dogs = GAME.entities.dogs.filter(d => d.visible);
@@ -760,7 +762,6 @@ class GameEngine {
         ground.receiveShadow = true;
         this.scene.add(ground);
 
-        // Líneas de estacionamiento
         const lineMat = new THREE.MeshStandardMaterial({ color: CONFIG.colors.lineWhite, roughness: 0.5 });
         for (let x = -35; x <= 35; x += 6) {
             const lineGeo = new THREE.PlaneGeometry(1, 40);
@@ -775,7 +776,6 @@ class GameEngine {
 
         const levelConfig = CONFIG.levels[level] || {};
 
-        // Spawnear autos
         const spawnInterval = setInterval(() => {
             if (GAME.state !== 'PLAYING' || GAME.entities.cars.length >= GAME.maxCars) {
                 clearInterval(spawnInterval);
@@ -786,7 +786,6 @@ class GameEngine {
             GAME.entities.cars.push(car);
         }, levelConfig.spawnRate || 1000);
 
-        // Spawnear perros
         const dogInterval = setInterval(() => {
             if (GAME.state !== 'PLAYING') {
                 clearInterval(dogInterval);
@@ -812,6 +811,10 @@ class GameEngine {
         document.getElementById('game-over-screen').style.display = 'block';
     }
 }
+
+// =============================================
+// INICIALIZACIÓN
+// =============================================
 
 const game = new GameEngine();
 
