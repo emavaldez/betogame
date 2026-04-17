@@ -1,721 +1,558 @@
-// =============================================
-// LA VIDA DE BETO - Juego Principal (ES Module)
-// =============================================
-
+// LA VIDA DE BETO
 import * as THREE from 'three';
 
-// =============================================
-// CLASES DE ENTIDADES
-// =============================================
+// ── Cámara isométrica clara ──────────────────────────────────────
+// La cámara mira al origen (0,0,0) desde arriba-atrás.
+// Todo el contenido del juego vive alrededor de (0,0,0).
+const CAM_POS  = new THREE.Vector3(0, 45, 55);
+const CAM_LOOK = new THREE.Vector3(0, 0, 0);
+
+// ── Límites del mapa ─────────────────────────────────────────────
+const MAP = 40;
+
+// ═══════════════════════════════════════════════════════
+//  ESCENA GLOBAL — se crea UNA sola vez
+// ═══════════════════════════════════════════════════════
+const canvas   = document.getElementById('game-canvas');
+const scene    = new THREE.Scene();
+scene.background = new THREE.Color(0x87CEEB);
+
+const camera   = new THREE.PerspectiveCamera(60, innerWidth / innerHeight, 0.1, 600);
+camera.position.copy(CAM_POS);
+camera.lookAt(CAM_LOOK);
+
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+renderer.setSize(innerWidth, innerHeight);
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+
+window.addEventListener('resize', () => {
+    camera.aspect = innerWidth / innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(innerWidth, innerHeight);
+});
+
+// ── Luces permanentes ────────────────────────────────────────────
+scene.add(new THREE.AmbientLight(0xffffff, 1.0));
+const sun = new THREE.DirectionalLight(0xffffff, 0.8);
+sun.position.set(30, 50, 30);
+scene.add(sun);
+
+// ── Escenario estático ───────────────────────────────────────────
+(function buildScene() {
+    // Suelo verde
+    const ground = new THREE.Mesh(
+        new THREE.PlaneGeometry(200, 200),
+        new THREE.MeshLambertMaterial({ color: 0x55AA44 })
+    );
+    ground.rotation.x = -Math.PI / 2;
+    scene.add(ground);
+    window._ground = ground; // referencia para raycaster
+
+    // Zona asfalto
+    const asphalt = new THREE.Mesh(
+        new THREE.PlaneGeometry(100, 50),
+        new THREE.MeshLambertMaterial({ color: 0x444444 })
+    );
+    asphalt.rotation.x = -Math.PI / 2;
+    asphalt.position.y = 0.01;
+    scene.add(asphalt);
+
+    // Líneas blancas
+    const wMat = new THREE.MeshLambertMaterial({ color: 0xFFFFFF });
+    for (let x = -44; x <= 44; x += 8) {
+        const l = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 18), wMat);
+        l.rotation.x = -Math.PI / 2;
+        l.position.set(x, 0.03, 0);
+        scene.add(l);
+    }
+    [-9, 9].forEach(z => {
+        const l = new THREE.Mesh(new THREE.PlaneGeometry(100, 0.5), wMat);
+        l.rotation.x = -Math.PI / 2;
+        l.position.set(0, 0.03, z);
+        scene.add(l);
+    });
+
+    // Edificio al fondo
+    const bld = new THREE.Mesh(
+        new THREE.BoxGeometry(22, 26, 10),
+        new THREE.MeshLambertMaterial({ color: 0xD4C5A0 })
+    );
+    bld.position.set(0, 13, -40);
+    scene.add(bld);
+
+    // Ventanas edificio
+    const wWin = new THREE.MeshLambertMaterial({ color: 0x88CCFF });
+    for (let wy = 4; wy <= 22; wy += 5) {
+        [-7,-2,3,8].forEach(wx => {
+            const w = new THREE.Mesh(new THREE.BoxGeometry(2.5, 2.5, 0.5), wWin);
+            w.position.set(wx, wy, -35.2);
+            scene.add(w);
+        });
+    }
+
+    // Cartel azul
+    const sign = new THREE.Mesh(
+        new THREE.BoxGeometry(18, 3, 0.5),
+        new THREE.MeshLambertMaterial({ color: 0x003399 })
+    );
+    sign.position.set(0, 24, -35.3);
+    scene.add(sign);
+
+    // Faroles
+    const pMat = new THREE.MeshLambertMaterial({ color: 0x999999 });
+    const lMat = new THREE.MeshLambertMaterial({ color: 0xFFFF88 });
+    [-38,-20,0,20,38].forEach(x => {
+        const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.18,0.22,9,8), pMat);
+        pole.position.set(x, 4.5, 16);
+        scene.add(pole);
+        const lamp = new THREE.Mesh(new THREE.BoxGeometry(1,0.7,1), lMat);
+        lamp.position.set(x, 9.4, 16);
+        scene.add(lamp);
+    });
+
+    // Árboles
+    const tMat = new THREE.MeshLambertMaterial({ color: 0x795548 });
+    const gMat = new THREE.MeshLambertMaterial({ color: 0x33691E });
+    [-48,-38,38,48].forEach(x => {
+        const t = new THREE.Mesh(new THREE.CylinderGeometry(0.4,0.5,5,8), tMat);
+        t.position.set(x, 2.5, 10);
+        scene.add(t);
+        const g = new THREE.Mesh(new THREE.SphereGeometry(3.5,8,6), gMat);
+        g.position.set(x, 7.5, 10);
+        scene.add(g);
+    });
+})();
+
+// ═══════════════════════════════════════════════════════
+//  ENTIDADES
+// ═══════════════════════════════════════════════════════
 
 class Beto {
-    constructor(scene) {
-        this.scene = scene;
-        this.speed = 0.12;
-        this.targetPosition = null;
-        this.walkCycle = 0;
-        this.visible = true;
-        this.createModel();
+    constructor() {
+        this.speed = 0.15;
+        this.target = null;
+        this.wc = 0;
+        this._build();
     }
+    _build() {
+        const g   = new THREE.Group();
+        const sk  = new THREE.MeshLambertMaterial({ color: 0xFFCCAA });
+        const bl  = new THREE.MeshLambertMaterial({ color: 0x1122CC });
+        const ye  = new THREE.MeshLambertMaterial({ color: 0xFFDD00 });
+        const blk = new THREE.MeshLambertMaterial({ color: 0x111111 });
+        const lb  = new THREE.MeshLambertMaterial({ color: 0x3366FF });
 
-    createModel() {
-        const group = new THREE.Group();
-        const skin = new THREE.MeshLambertMaterial({ color: 0xFFCCAA });
-        const blue = new THREE.MeshLambertMaterial({ color: 0x0000CC });
-        const yellow = new THREE.MeshLambertMaterial({ color: 0xFFD700 });
-        const black = new THREE.MeshLambertMaterial({ color: 0x111111 });
-        const lightBlue = new THREE.MeshLambertMaterial({ color: 0x4488FF });
+        const box = (w,h,d,m,x,y,z) => {
+            const mesh = new THREE.Mesh(new THREE.BoxGeometry(w,h,d), m);
+            mesh.position.set(x,y,z);
+            g.add(mesh);
+            return mesh;
+        };
 
-        // Piernas
-        this.legL = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.9, 0.4), lightBlue);
-        this.legL.position.set(-0.25, 0.45, 0);
-        group.add(this.legL);
+        this.lL = box(0.45,1.0,0.45, lb,  -0.28,0.5,0);
+        this.lR = box(0.45,1.0,0.45, lb,   0.28,0.5,0);
+                  box(1.2, 1.2,0.65, bl,   0,   1.8,0);   // torso
+                  box(1.25,0.4,0.70, ye,   0,   1.8,0);   // franja
+        this.aL = box(0.4, 1.0,0.4,  bl,  -0.82,1.8,0);
+        this.aR = box(0.4, 1.0,0.4,  bl,   0.82,1.8,0);
+                  box(0.5, 0.35,0.5, sk,   0,   2.6,0);   // cuello
+                  box(0.85,0.9,0.80, sk,   0,   3.22,0);  // cabeza
+                  box(0.17,0.17,0.1, blk, -0.22,3.28,0.41); // ojo L
+                  box(0.17,0.17,0.1, blk,  0.22,3.28,0.41); // ojo R
+                  box(0.9, 0.22,0.85,ye,   0,   3.75,0);  // bandana
 
-        this.legR = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.9, 0.4), lightBlue);
-        this.legR.position.set(0.25, 0.45, 0);
-        group.add(this.legR);
-
-        // Torso
-        const torso = new THREE.Mesh(new THREE.BoxGeometry(1.1, 1.1, 0.6), blue);
-        torso.position.y = 1.3;
-        group.add(torso);
-
-        // Franja amarilla
-        const franja = new THREE.Mesh(new THREE.BoxGeometry(1.15, 0.35, 0.65), yellow);
-        franja.position.y = 1.3;
-        group.add(franja);
-
-        // Brazos
-        this.armL = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.9, 0.35), blue);
-        this.armL.position.set(-0.73, 1.3, 0);
-        group.add(this.armL);
-
-        this.armR = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.9, 0.35), blue);
-        this.armR.position.set(0.73, 1.3, 0);
-        group.add(this.armR);
-
-        // Cuello
-        const neck = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.3, 0.4), skin);
-        neck.position.y = 1.95;
-        group.add(neck);
-
-        // Cabeza
-        const head = new THREE.Mesh(new THREE.BoxGeometry(0.75, 0.8, 0.7), skin);
-        head.position.y = 2.5;
-        group.add(head);
-
-        // Ojos
-        const eyeGeo = new THREE.BoxGeometry(0.15, 0.15, 0.05);
-        const eyeL = new THREE.Mesh(eyeGeo, black);
-        eyeL.position.set(-0.2, 2.55, 0.36);
-        group.add(eyeL);
-        const eyeR = new THREE.Mesh(eyeGeo, black);
-        eyeR.position.set(0.2, 2.55, 0.36);
-        group.add(eyeR);
-
-        // Bandana amarilla
-        const bandana = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.2, 0.75), yellow);
-        bandana.position.y = 2.95;
-        group.add(bandana);
-
-        group.scale.set(1.5, 1.5, 1.5);
-
-        this.mesh = group;
-        this.scene.add(this.mesh);
+        this.mesh = g;
+        scene.add(g);
     }
-
-    moveTo(x, z) {
-        this.targetPosition = new THREE.Vector3(x, 0, z);
-    }
-
+    moveTo(x,z) { this.target = new THREE.Vector3(x,0,z); }
     move(keys) {
-        const v = new THREE.Vector3();
-        if (keys.w || keys.arrowup)    v.z -= 1;
-        if (keys.s || keys.arrowdown)  v.z += 1;
-        if (keys.a || keys.arrowleft)  v.x -= 1;
-        if (keys.d || keys.arrowright) v.x += 1;
-        if (v.length() > 0) {
-            v.normalize().multiplyScalar(15);
+        const v = new THREE.Vector3(
+            (keys.d||keys.arrowright?1:0)-(keys.a||keys.arrowleft?1:0),
+            0,
+            (keys.s||keys.arrowdown?1:0)-(keys.w||keys.arrowup?1:0)
+        );
+        if(v.length()>0){
+            v.normalize().multiplyScalar(20);
             const p = this.mesh.position.clone().add(v);
-            p.x = Math.max(-50, Math.min(50, p.x));
-            p.z = Math.max(-50, Math.min(50, p.z));
-            this.targetPosition = p;
+            p.x = Math.max(-MAP,Math.min(MAP,p.x));
+            p.z = Math.max(-MAP,Math.min(MAP,p.z));
+            this.target = p;
         }
     }
-
     update(dt) {
-        this.walkCycle += dt * 8;
-        const sw = Math.sin(this.walkCycle) * 0.4;
-        this.legL.rotation.x = sw;
-        this.legR.rotation.x = -sw;
-        this.armL.rotation.x = -sw;
-        this.armR.rotation.x = sw;
-
-        if (this.targetPosition) {
-            const dir = new THREE.Vector3().subVectors(this.targetPosition, this.mesh.position);
-            const dist = dir.length();
-            if (dist > 0.15) {
-                dir.normalize();
-                this.mesh.position.addScaledVector(dir, this.speed);
-                this.mesh.rotation.y = Math.atan2(dir.x, dir.z);
+        this.wc += dt*8;
+        const sw = Math.sin(this.wc)*0.45;
+        this.lL.rotation.x =  sw; this.lR.rotation.x = -sw;
+        this.aL.rotation.x = -sw; this.aR.rotation.x =  sw;
+        if(this.target){
+            const d = new THREE.Vector3().subVectors(this.target, this.mesh.position);
+            if(d.length()>0.2){
+                d.normalize();
+                this.mesh.position.addScaledVector(d, this.speed);
+                this.mesh.rotation.y = Math.atan2(d.x,d.z);
             } else {
-                this.mesh.position.copy(this.targetPosition);
-                this.targetPosition = null;
+                this.mesh.position.copy(this.target);
+                this.target = null;
             }
         }
     }
 }
 
 class Car {
-    constructor(scene) {
-        this.scene = scene;
-        this.visible = true;
-        this.state = 'waiting';
-        this.arrivalTime = Date.now();
-        this.maxWaitTime = 18000;
-        this.parkPosition = null;
+    constructor() {
+        this.visible   = true;
+        this.state     = 'waiting';
+        this.born      = Date.now();
+        this.parkPos   = null;
         this.collected = false;
-        this.createModel();
+        this._build();
     }
+    _build() {
+        const g    = new THREE.Group();
+        const col  = new THREE.Color().setHSL(Math.random(),0.8,0.5);
+        const cMat = new THREE.MeshLambertMaterial({ color: col });
+        const dMat = new THREE.MeshLambertMaterial({ color: 0x222222 });
+        const gMat = new THREE.MeshLambertMaterial({ color: 0x88CCFF, transparent:true, opacity:0.55 });
+        const lMat = new THREE.MeshLambertMaterial({ color: 0xFFFFAA });
 
-    createModel() {
-        const group = new THREE.Group();
-        const hue = Math.random();
-        const color = new THREE.Color().setHSL(hue, 0.8, 0.5);
-        const mat = new THREE.MeshLambertMaterial({ color });
-        const dark = new THREE.MeshLambertMaterial({ color: 0x222222 });
-        const glass = new THREE.MeshLambertMaterial({ color: 0x88CCFF, transparent: true, opacity: 0.6 });
-        const lightM = new THREE.MeshLambertMaterial({ color: 0xFFFFAA, emissive: new THREE.Color(0xFFFF88) });
+        const box = (w,h,d,m,x,y,z) => {
+            const mesh = new THREE.Mesh(new THREE.BoxGeometry(w,h,d), m);
+            mesh.position.set(x,y,z); g.add(mesh);
+        };
 
-        const chassis = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.7, 4.8), mat);
-        chassis.position.y = 0.35;
-        group.add(chassis);
+        box(2.6,0.8,5.0,  cMat, 0, 0.4,  0);    // chasis
+        box(2.2,1.0,2.8,  cMat, 0, 1.3,  0.2);  // cabina
+        box(2.1,0.8,0.12, gMat, 0, 1.3, -1.2);  // parabrisas
 
-        const cabin = new THREE.Mesh(new THREE.BoxGeometry(2.0, 0.9, 2.6), mat);
-        cabin.position.set(0, 1.1, 0.2);
-        group.add(cabin);
-
-        const windshield = new THREE.Mesh(new THREE.BoxGeometry(1.9, 0.75, 0.1), glass);
-        windshield.position.set(0, 1.1, -1.1);
-        group.add(windshield);
-
-        const wGeo = new THREE.CylinderGeometry(0.42, 0.42, 0.25, 12);
-        [[-1.15, 0, -1.6], [1.15, 0, -1.6], [-1.15, 0, 1.6], [1.15, 0, 1.6]].forEach(p => {
-            const w = new THREE.Mesh(wGeo, dark);
-            w.rotation.z = Math.PI / 2;
+        // ruedas
+        const wG = new THREE.CylinderGeometry(0.48,0.48,0.28,12);
+        [[-1.2,0,-1.8],[1.2,0,-1.8],[-1.2,0,1.8],[1.2,0,1.8]].forEach(p=>{
+            const w = new THREE.Mesh(wG, dMat);
+            w.rotation.z = Math.PI/2;
             w.position.set(...p);
-            group.add(w);
+            g.add(w);
         });
 
-        [-0.7, 0.7].forEach(x => {
-            const f = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.25, 0.1), lightM);
-            f.position.set(x, 0.5, -2.45);
-            group.add(f);
+        // faros
+        [-0.75,0.75].forEach(x=>{
+            box(0.4,0.28,0.1, lMat, x, 0.55, -2.52);
         });
 
-        const indMat = new THREE.MeshLambertMaterial({ color: 0xFFEE00, emissive: new THREE.Color(0xFFDD00) });
-        this.indicator = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.5, 0.5), indMat);
-        this.indicator.position.y = 3.2;
-        group.add(this.indicator);
+        // indicador flotante
+        const iMat = new THREE.MeshLambertMaterial({ color:0xFFEE00 });
+        this.ind = new THREE.Mesh(new THREE.BoxGeometry(0.6,0.6,0.6), iMat);
+        this.ind.position.y = 3.6;
+        g.add(this.ind);
 
-        this.mesh = group;
-        this.scene.add(this.mesh);
+        this.mesh = g;
+        scene.add(g);
     }
-
-    markForParking(x, z) {
-        this.state = 'parking';
-        this.parkPosition = { x, z };
-        if (this.indicator) this.indicator.visible = false;
+    park(x,z) {
+        this.state   = 'parking';
+        this.parkPos = {x,z};
+        this.ind.visible = false;
     }
-
     leave() { this.state = 'leaving'; }
-
     update(dt) {
-        if (!this.visible) return;
-
-        if (this.indicator && this.state === 'waiting') {
-            this.indicator.rotation.y += dt * 3;
-            this.indicator.position.y = 3.2 + Math.sin(Date.now() * 0.004) * 0.25;
-            this.indicator.visible = Math.floor(Date.now() / 400) % 2 === 0;
+        if(!this.visible) return;
+        if(this.state==='waiting'){
+            this.ind.rotation.y += dt*3;
+            this.ind.position.y  = 3.6 + Math.sin(Date.now()*0.004)*0.28;
+            this.ind.visible     = Math.floor(Date.now()/400)%2===0;
+            if(Date.now()-this.born > 20000 && Math.random()<0.005) this.leave();
         }
-
-        switch (this.state) {
-            case 'waiting': {
-                const elapsed = Date.now() - this.arrivalTime;
-                if (elapsed >= this.maxWaitTime && Math.random() < 0.008) this.state = 'leaving';
-                break;
+        if(this.state==='parking' && this.parkPos){
+            const tgt = new THREE.Vector3(this.parkPos.x, 0, this.parkPos.z);
+            const dir = new THREE.Vector3().subVectors(tgt, this.mesh.position);
+            if(dir.length()>0.35){
+                dir.normalize();
+                this.mesh.position.addScaledVector(dir,0.18);
+                this.mesh.rotation.y = Math.atan2(dir.x,dir.z);
+            } else {
+                this.mesh.position.copy(tgt);
+                this.state = 'parked';
             }
-            case 'parking': {
-                if (this.parkPosition) {
-                    const target = new THREE.Vector3(this.parkPosition.x, 0, this.parkPosition.z);
-                    const dir = new THREE.Vector3().subVectors(target, this.mesh.position);
-                    const dist = dir.length();
-                    if (dist > 0.4) {
-                        dir.normalize();
-                        this.mesh.position.addScaledVector(dir, 0.15);
-                        this.mesh.rotation.y = Math.atan2(dir.x, dir.z);
-                    } else {
-                        this.mesh.position.copy(target);
-                        this.state = 'parked';
-                    }
-                }
-                break;
-            }
-            case 'leaving': {
-                this.mesh.position.z += dt * 12;
-                if (this.mesh.position.z > 80) this.visible = false;
-                break;
-            }
+        }
+        if(this.state==='leaving'){
+            this.mesh.position.z += dt*15;
+            if(this.mesh.position.z>80) this.visible=false;
         }
     }
 }
 
 class Dog {
-    constructor(scene) {
-        this.scene = scene;
+    constructor() {
         this.visible = true;
-        this.state = 'wandering';
-        this.walkTime = Math.random() * 10;
-        this.attackTime = 0;
-        this.createModel();
+        this.state   = 'wandering';
+        this.wt      = Math.random()*10;
+        this.atk     = 0;
+        this._build();
     }
+    _build() {
+        const g    = new THREE.Group();
+        const fur  = new THREE.MeshLambertMaterial({ color:0x8B6914 });
+        const dark = new THREE.MeshLambertMaterial({ color:0x5C3D0E });
+        const blk  = new THREE.MeshLambertMaterial({ color:0x111111 });
 
-    createModel() {
-        const group = new THREE.Group();
-        const fur = new THREE.MeshLambertMaterial({ color: 0x8B6914 });
-        const dark = new THREE.MeshLambertMaterial({ color: 0x5C3D0E });
-        const eyeM = new THREE.MeshLambertMaterial({ color: 0x111111 });
+        const box=(w,h,d,m,x,y,z)=>{
+            const mesh=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),m);
+            mesh.position.set(x,y,z); g.add(mesh); return mesh;
+        };
 
-        const body = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.9, 2.2), fur);
-        body.position.y = 0.85;
-        group.add(body);
-
-        const head = new THREE.Mesh(new THREE.BoxGeometry(1.1, 1.0, 1.3), dark);
-        head.position.set(0, 1.7, 1.0);
-        group.add(head);
-
-        const snout = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.55, 0.6), fur);
-        snout.position.set(0, 1.55, 1.6);
-        group.add(snout);
-
-        [-0.45, 0.45].forEach((x, i) => {
-            const ear = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.55, 0.15), dark);
-            ear.position.set(x, 2.2, 0.9);
-            ear.rotation.z = i === 0 ? 0.3 : -0.3;
-            group.add(ear);
-        });
-
-        [-0.3, 0.3].forEach(x => {
-            const eye = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.18, 0.1), eyeM);
-            eye.position.set(x, 1.75, 1.6);
-            group.add(eye);
-        });
+        box(1.6,1.0,2.4, fur, 0, 1.0, 0);        // cuerpo
+        box(1.2,1.1,1.4, dark,0, 2.0, 1.1);       // cabeza
+        box(0.8,0.6,0.65,fur, 0, 1.78,1.8);       // hocico
+        box(0.35,0.6,0.18,dark,-0.52,2.75,1.0);   // oreja L
+        box(0.35,0.6,0.18,dark, 0.52,2.75,1.0);   // oreja R
+        box(0.2,0.2,0.12,blk,-0.32,2.05,1.75);    // ojo L
+        box(0.2,0.2,0.12,blk, 0.32,2.05,1.75);    // ojo R
 
         this.patas = [];
-        const legGeo = new THREE.BoxGeometry(0.3, 0.75, 0.3);
-        [[-0.55, 0.38, -0.7], [0.55, 0.38, -0.7], [-0.55, 0.38, 0.75], [0.55, 0.38, 0.75]].forEach(p => {
-            const leg = new THREE.Mesh(legGeo, dark);
-            leg.position.set(...p);
-            group.add(leg);
-            this.patas.push(leg);
+        const lG = new THREE.BoxGeometry(0.35,0.85,0.35);
+        [[-0.6,0.42,-0.75],[0.6,0.42,-0.75],[-0.6,0.42,0.8],[0.6,0.42,0.8]].forEach(p=>{
+            const leg = new THREE.Mesh(lG, dark);
+            leg.position.set(...p); g.add(leg); this.patas.push(leg);
         });
 
-        this.cola = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.18, 0.9, 8), fur);
-        this.cola.position.set(0, 1.3, -1.2);
-        this.cola.rotation.x = -0.7;
-        group.add(this.cola);
+        this.cola = box(0.15,0.9,0.15, fur, 0, 1.5,-1.3);
+        this.cola.rotation.x = -0.8;
 
-        group.scale.set(1.2, 1.2, 1.2);
-        this.mesh = group;
-        this.scene.add(this.mesh);
+        g.scale.set(1.3,1.3,1.3);
+        this.mesh = g;
+        scene.add(g);
     }
-
     attack() {
         this.state = 'attacking';
-        this.attackTime = Date.now();
-        for (let i = 0; i < 4; i++) {
-            setTimeout(() => {
-                if (this.visible) {
-                    this.mesh.scale.set(2.0, 2.0, 2.0);
-                    setTimeout(() => { if (this.visible) this.mesh.scale.set(1.2, 1.2, 1.2); }, 150);
-                }
-            }, i * 280);
+        this.atk   = Date.now();
+        for(let i=0;i<4;i++){
+            setTimeout(()=>{
+                if(this.visible){ this.mesh.scale.set(2,2,2);
+                    setTimeout(()=>{ if(this.visible) this.mesh.scale.set(1.3,1.3,1.3); },150); }
+            },i*280);
         }
     }
-
     update(dt) {
-        if (!this.visible) return;
-        this.walkTime += dt * 5;
-
-        switch (this.state) {
-            case 'wandering': {
-                if (Math.random() < 0.018) this.mesh.rotation.y += (Math.random() - 0.5) * Math.PI * 0.7;
-                const spd = 0.07;
-                this.mesh.position.x += Math.sin(this.mesh.rotation.y) * spd;
-                this.mesh.position.z += Math.cos(this.mesh.rotation.y) * spd;
-                this.mesh.position.x = Math.max(-50, Math.min(50, this.mesh.position.x));
-                this.mesh.position.z = Math.max(-50, Math.min(50, this.mesh.position.z));
-                const sw = Math.sin(this.walkTime) * 0.45;
-                if (this.patas.length === 4) {
-                    this.patas[0].rotation.x = sw;
-                    this.patas[1].rotation.x = -sw;
-                    this.patas[2].rotation.x = -sw;
-                    this.patas[3].rotation.x = sw;
-                }
-                if (this.cola) this.cola.rotation.z = Math.sin(this.walkTime * 2.5) * 0.4;
-                break;
-            }
-            case 'attacking': {
-                if (Date.now() - this.attackTime > 1200) this.state = 'leaving';
-                break;
-            }
-            case 'leaving': {
-                this.mesh.position.z += dt * 10;
-                if (this.mesh.position.z > 80) this.visible = false;
-                break;
-            }
+        if(!this.visible) return;
+        this.wt += dt*5;
+        if(this.state==='wandering'){
+            if(Math.random()<0.018) this.mesh.rotation.y+=(Math.random()-0.5)*1.4;
+            const spd=0.08;
+            this.mesh.position.x += Math.sin(this.mesh.rotation.y)*spd;
+            this.mesh.position.z += Math.cos(this.mesh.rotation.y)*spd;
+            this.mesh.position.x  = Math.max(-MAP,Math.min(MAP,this.mesh.position.x));
+            this.mesh.position.z  = Math.max(-MAP,Math.min(MAP,this.mesh.position.z));
+            const sw=Math.sin(this.wt)*0.5;
+            this.patas[0].rotation.x= sw; this.patas[1].rotation.x=-sw;
+            this.patas[2].rotation.x=-sw; this.patas[3].rotation.x= sw;
+            this.cola.rotation.z = Math.sin(this.wt*2.5)*0.45;
         }
-        this.mesh.position.y = 0;
+        if(this.state==='attacking' && Date.now()-this.atk>1200) this.state='leaving';
+        if(this.state==='leaving'){
+            this.mesh.position.z+=dt*12;
+            if(this.mesh.position.z>80) this.visible=false;
+        }
+        this.mesh.position.y=0;
     }
 }
 
-// =============================================
-// MOTOR
-// =============================================
+// ═══════════════════════════════════════════════════════
+//  ESTADO DEL JUEGO
+// ═══════════════════════════════════════════════════════
+const G = {
+    state:'START', level:1, money:100, lives:3, maxCars:12,
+    cars:[], dogs:[], beto:null,
+    spawnT:null, dogT:null, keys:{}
+};
 
 const LEVELS = {
-    1: { spawnRate: 2500, dogRate: 5000, label: 'La Calle' },
-    2: { spawnRate: 1500, dogRate: 3000, label: 'La Plaza' },
-    3: { spawnRate: 800,  dogRate: 1800, label: '4 Manzanas' },
+    1:{spawn:2500,dogs:5000,label:'La Calle'},
+    2:{spawn:1500,dogs:3000,label:'La Plaza'},
+    3:{spawn:800, dogs:1800,label:'4 Manzanas'},
 };
 
-const GAME = {
-    state: 'START',
-    currentLevel: 1,
-    money: 100,
-    lives: 3,
-    maxCars: 12,
-    entities: { cars: [], dogs: [] },
-    keys: {},
-    beto: null,
-    spawnInterval: null,
-    dogInterval: null,
-};
-
-class GameEngine {
-    constructor() {
-        this.canvas = document.getElementById('game-canvas');
-
-        this.scene = new THREE.Scene();
-        this.scene.background = new THREE.Color(0x87CEEB);
-        this.scene.fog = new THREE.Fog(0x87CEEB, 90, 160);
-
-        this.camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.1, 500);
-        this.camera.position.set(0, 28, 38);
-        this.camera.lookAt(0, 0, -8);
-
-        this.renderer = new THREE.WebGLRenderer({ canvas: this.canvas, antialias: true });
-        this.renderer.setSize(window.innerWidth, window.innerHeight);
-        this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-        this.renderer.shadowMap.enabled = true;
-
-        // LUCES — siempre en escena, nunca se borran
-        const ambient = new THREE.AmbientLight(0xffffff, 0.85);
-        ambient.name = 'ambient';
-        this.scene.add(ambient);
-
-        const sun = new THREE.DirectionalLight(0xFFF5E0, 1.1);
-        sun.position.set(20, 40, 20);
-        sun.castShadow = true;
-        sun.name = 'sun';
-        this.scene.add(sun);
-
-        // Escena estática
-        this.buildStaticScene();
-
-        // Eventos
-        window.addEventListener('resize', () => {
-            this.camera.aspect = window.innerWidth / window.innerHeight;
-            this.camera.updateProjectionMatrix();
-            this.renderer.setSize(window.innerWidth, window.innerHeight);
-        });
-
-        document.addEventListener('keydown', e => {
-            const k = e.key.toLowerCase()
-                .replace('arrow', '')
-                .replace('arrowup','w').replace('arrowdown','s')
-                .replace('arrowleft','a').replace('arrowright','d');
-            GAME.keys[k] = true;
-            if (GAME.state === 'PLAYING' && GAME.beto) GAME.beto.move(GAME.keys);
-        });
-        document.addEventListener('keyup', e => {
-            const k = e.key.toLowerCase();
-            delete GAME.keys[k];
-            delete GAME.keys[k.replace('arrow','')];
-        });
-
-        this.canvas.addEventListener('click', e => this.onClick(e));
-
-        this.lastTime = performance.now();
-        requestAnimationFrame(t => this.loop(t));
-    }
-
-    buildStaticScene() {
-        // Suelo verde grande
-        const groundGeo = new THREE.PlaneGeometry(160, 160);
-        const groundMat = new THREE.MeshLambertMaterial({ color: 0x4CAF50 });
-        this.ground = new THREE.Mesh(groundGeo, groundMat);
-        this.ground.rotation.x = -Math.PI / 2;
-        this.ground.receiveShadow = true;
-        this.scene.add(this.ground);
-
-        // Zona de asfalto
-        const asphalt = new THREE.Mesh(
-            new THREE.PlaneGeometry(90, 35),
-            new THREE.MeshLambertMaterial({ color: 0x444444 })
-        );
-        asphalt.rotation.x = -Math.PI / 2;
-        asphalt.position.set(0, 0.02, -8);
-        this.scene.add(asphalt);
-
-        // Líneas de estacionamiento
-        const lineMat = new THREE.MeshLambertMaterial({ color: 0xFFFFFF });
-        for (let x = -40; x <= 40; x += 8) {
-            const line = new THREE.Mesh(new THREE.PlaneGeometry(0.4, 14), lineMat);
-            line.rotation.x = -Math.PI / 2;
-            line.position.set(x, 0.04, -8);
-            this.scene.add(line);
-        }
-        [-1, -15].forEach(z => {
-            const line = new THREE.Mesh(new THREE.PlaneGeometry(90, 0.4), lineMat);
-            line.rotation.x = -Math.PI / 2;
-            line.position.set(0, 0.04, z);
-            this.scene.add(line);
-        });
-
-        // Edificio al fondo
-        const bld = new THREE.Mesh(
-            new THREE.BoxGeometry(20, 24, 9),
-            new THREE.MeshLambertMaterial({ color: 0xE8D5B0 })
-        );
-        bld.position.set(0, 12, -55);
-        this.scene.add(bld);
-
-        // Ventanas del edificio
-        const winMat = new THREE.MeshLambertMaterial({ color: 0xAADDFF, emissive: new THREE.Color(0x224466) });
-        for (let wy = 4; wy <= 20; wy += 4) {
-            [-6, -2, 2, 6].forEach(wx => {
-                const win = new THREE.Mesh(new THREE.BoxGeometry(2.5, 2.5, 0.3), winMat);
-                win.position.set(wx, wy, -50.6);
-                this.scene.add(win);
-            });
-        }
-
-        // Señal azul en edificio
-        const sign = new THREE.Mesh(
-            new THREE.BoxGeometry(16, 3, 0.5),
-            new THREE.MeshLambertMaterial({ color: 0x003399 })
-        );
-        sign.position.set(0, 22, -50.8);
-        this.scene.add(sign);
-
-        // Faroles
-        const poleMat = new THREE.MeshLambertMaterial({ color: 0x888888 });
-        const lampMat = new THREE.MeshLambertMaterial({ color: 0xFFFF99, emissive: new THREE.Color(0xFFFF66) });
-        [-36, -20, 0, 20, 36].forEach(x => {
-            const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.2, 9, 8), poleMat);
-            pole.position.set(x, 4.5, 14);
-            this.scene.add(pole);
-            const lamp = new THREE.Mesh(new THREE.BoxGeometry(1, 0.6, 1), lampMat);
-            lamp.position.set(x, 9.3, 14);
-            this.scene.add(lamp);
-        });
-
-        // Árboles
-        const trunkMat = new THREE.MeshLambertMaterial({ color: 0x6D4C41 });
-        const leavesMat = new THREE.MeshLambertMaterial({ color: 0x2E7D32 });
-        [-50, -42, 42, 50].forEach(x => {
-            const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.5, 4, 8), trunkMat);
-            trunk.position.set(x, 2, 8);
-            this.scene.add(trunk);
-            const leaves = new THREE.Mesh(new THREE.SphereGeometry(3, 8, 6), leavesMat);
-            leaves.position.set(x, 7, 8);
-            this.scene.add(leaves);
-        });
-    }
-
-    onClick(e) {
-        if (GAME.state !== 'PLAYING' || !GAME.beto) return;
-
-        const rect = this.canvas.getBoundingClientRect();
-        const nx = ((e.clientX - rect.left) / rect.width) * 2 - 1;
-        const ny = -((e.clientY - rect.top) / rect.height) * 2 + 1;
-
-        const ray = new THREE.Raycaster();
-        ray.setFromCamera(new THREE.Vector2(nx, ny), this.camera);
-        const hits = ray.intersectObject(this.ground);
-
-        if (hits.length > 0) {
-            const pt = hits[0].point;
-            GAME.beto.moveTo(pt.x, pt.z);
-            this.spawnMark(pt.x, pt.z);
-
-            // ¿Auto cercano para guiar?
-            for (const car of GAME.entities.cars) {
-                if (car.state !== 'waiting') continue;
-                const dist = car.mesh.position.distanceTo(GAME.beto.mesh.position);
-                if (dist < 12) {
-                    car.markForParking(pt.x, pt.z);
-                    this.toast('¡Auto guiado! 🚗', '#4CAF50');
-                    break;
-                }
-            }
-        }
-    }
-
-    spawnMark(x, z) {
-        const mat = new THREE.MeshLambertMaterial({ color: 0xFFFF00, transparent: true, opacity: 0.9 });
-        const mark = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.12, 1.2), mat);
-        mark.position.set(x, 0.1, z);
-        this.scene.add(mark);
-        let op = 0.9;
-        const iv = setInterval(() => {
-            op -= 0.08;
-            mat.opacity = op;
-            if (op <= 0) { clearInterval(iv); this.scene.remove(mark); }
-        }, 70);
-    }
-
-    toast(text, color = '#FFD700') {
-        const el = document.createElement('div');
-        el.textContent = text;
-        el.style.cssText = `
-            position:fixed;top:45%;left:50%;transform:translate(-50%,-50%);
-            background:rgba(0,0,0,.78);color:${color};
-            padding:12px 26px;border-radius:10px;font-size:22px;font-weight:bold;
-            pointer-events:none;z-index:200;transition:opacity .5s,top .5s;
-        `;
-        document.body.appendChild(el);
-        setTimeout(() => { el.style.opacity = '0'; el.style.top = '35%'; }, 700);
-        setTimeout(() => el.remove(), 1300);
-    }
-
-    loop(time) {
-        const dt = Math.min((time - this.lastTime) / 1000, 0.1);
-        this.lastTime = time;
-
-        if (GAME.state === 'PLAYING') {
-            if (GAME.beto) GAME.beto.update(dt);
-            GAME.entities.cars.forEach(c => c.update(dt));
-            GAME.entities.dogs.forEach(d => d.update(dt));
-
-            if (GAME.beto) {
-                // Cobrar autos estacionados
-                GAME.entities.cars.forEach(car => {
-                    if (car.state === 'parked' && !car.collected) {
-                        const dist = car.mesh.position.distanceTo(GAME.beto.mesh.position);
-                        if (dist < 6) {
-                            car.collected = true;
-                            const gain = 15 + Math.floor(Math.random() * 35);
-                            GAME.money += gain;
-                            this.toast(`+$${gain} 💰`, '#FFD700');
-                            setTimeout(() => car.leave(), 1500);
-                        }
-                    }
-                });
-
-                // Perros atacan a Beto
-                GAME.entities.dogs.forEach(dog => {
-                    if (dog.state === 'wandering') {
-                        const dist = dog.mesh.position.distanceTo(GAME.beto.mesh.position);
-                        if (dist < 4) {
-                            dog.attack();
-                            GAME.money = Math.max(0, GAME.money - 15);
-                            this.toast('¡Mordida! -$15 🐕', '#FF5252');
-                        }
-                    }
-                });
-            }
-
-            // Limpiar invisibles
-            GAME.entities.cars = GAME.entities.cars.filter(c => {
-                if (!c.visible) { this.scene.remove(c.mesh); return false; }
-                return true;
-            });
-            GAME.entities.dogs = GAME.entities.dogs.filter(d => {
-                if (!d.visible) { this.scene.remove(d.mesh); return false; }
-                return true;
-            });
-
-            if (GAME.money <= 0) this.gameOver('¡Te quedaste sin plata! 💸');
-        }
-
-        this.updateHUD();
-        this.renderer.render(this.scene, this.camera);
-        requestAnimationFrame(t => this.loop(t));
-    }
-
-    updateHUD() {
-        const $ = id => document.getElementById(id);
-        if ($('money-display'))  $('money-display').textContent  = `$${GAME.money}`;
-        if ($('lives-display'))  $('lives-display').textContent  = GAME.lives;
-        if ($('cars-display'))   $('cars-display').textContent   = `${GAME.entities.cars.length}/${GAME.maxCars}`;
-        if ($('level-display'))  $('level-display').textContent  = `${GAME.currentLevel} - ${LEVELS[GAME.currentLevel].label}`;
-    }
-
-    startGame(level) {
-        // Quitar entidades anteriores de la escena
-        GAME.entities.cars.forEach(c => this.scene.remove(c.mesh));
-        GAME.entities.dogs.forEach(d => this.scene.remove(d.mesh));
-        if (GAME.beto) this.scene.remove(GAME.beto.mesh);
-
-        GAME.state = 'PLAYING';
-        GAME.currentLevel = level;
-        GAME.money = 100;
-        GAME.lives = 3;
-        GAME.entities.cars = [];
-        GAME.entities.dogs = [];
-        GAME.keys = {};
-
-        clearInterval(GAME.spawnInterval);
-        clearInterval(GAME.dogInterval);
-
-        // Beto aparece en el centro de la zona de estacionamiento
-        GAME.beto = new Beto(this.scene);
-        GAME.beto.mesh.position.set(0, 0, -5);
-
-        const cfg = LEVELS[level];
-
-        // Spawnear algunos autos de inmediato para que no quede vacío
-        for (let i = 0; i < 3; i++) {
-            setTimeout(() => {
-                if (GAME.state !== 'PLAYING') return;
-                const car = new Car(this.scene);
-                car.mesh.position.set(
-                    -32 + i * 16 + (Math.random() - 0.5) * 4,
-                    0,
-                    -28 + (Math.random() - 0.5) * 4
-                );
-                GAME.entities.cars.push(car);
-            }, i * 300);
-        }
-
-        // Intervalo de spawn de autos
-        GAME.spawnInterval = setInterval(() => {
-            if (GAME.state !== 'PLAYING') return;
-            if (GAME.entities.cars.length >= GAME.maxCars) return;
-            const car = new Car(this.scene);
-            car.mesh.position.set(
-                (Math.random() - 0.5) * 70,
-                0,
-                -38 + (Math.random() - 0.5) * 6
-            );
-            GAME.entities.cars.push(car);
-        }, cfg.spawnRate);
-
-        // Intervalo de spawn de perros
-        GAME.dogInterval = setInterval(() => {
-            if (GAME.state !== 'PLAYING') return;
-            const dog = new Dog(this.scene);
-            const sides = [[55,-10],[-55,-10],[0,-48],[0,18]];
-            const [px, pz] = sides[Math.floor(Math.random() * sides.length)];
-            dog.mesh.position.set(px, 0, pz);
-            dog.mesh.rotation.y = Math.atan2(-px, -pz - (-8));
-            GAME.entities.dogs.push(dog);
-        }, cfg.dogRate);
-    }
-
-    gameOver(reason) {
-        GAME.state = 'GAMEOVER';
-        clearInterval(GAME.spawnInterval);
-        clearInterval(GAME.dogInterval);
-        document.getElementById('game-over-reason').textContent = reason;
-        document.getElementById('final-score').textContent = GAME.money;
-        document.getElementById('game-over-screen').style.display = 'block';
-    }
+function toast(txt, color='#FFD700'){
+    const el=document.createElement('div');
+    el.textContent=txt;
+    el.style.cssText=`position:fixed;top:44%;left:50%;transform:translate(-50%,-50%);
+        background:rgba(0,0,0,.8);color:${color};padding:12px 28px;border-radius:10px;
+        font-size:22px;font-weight:bold;pointer-events:none;z-index:300;
+        transition:opacity .5s,top .5s;`;
+    document.body.appendChild(el);
+    setTimeout(()=>{el.style.opacity='0';el.style.top='34%';},700);
+    setTimeout(()=>el.remove(),1300);
 }
 
-// =============================================
-// INICIO
-// =============================================
+function startGame(level){
+    // Limpiar entidades anteriores
+    G.cars.forEach(c=>scene.remove(c.mesh));
+    G.dogs.forEach(d=>scene.remove(d.mesh));
+    if(G.beto) scene.remove(G.beto.mesh);
+    clearInterval(G.spawnT);
+    clearInterval(G.dogT);
 
-const game = new GameEngine();
+    G.state='PLAYING'; G.level=level;
+    G.money=100; G.lives=3;
+    G.cars=[]; G.dogs=[]; G.keys={};
 
-document.getElementById('start-btn').addEventListener('click', () => {
-    document.getElementById('start-screen').style.display = 'none';
-    document.getElementById('level-select').style.display = 'block';
+    // Crear Beto en el centro del asfalto, visible desde la cámara
+    G.beto = new Beto();
+    G.beto.mesh.position.set(0, 0, 5);   // justo frente a la cámara
+
+    // Autos iniciales — zona de estacionamiento visible
+    const spawnCar = () => {
+        if(G.cars.length >= G.maxCars) return;
+        const car = new Car();
+        car.mesh.position.set(
+            (Math.random()-0.5)*70,
+            0,
+            -5 + (Math.random()-0.5)*10   // en el asfalto, a la vista
+        );
+        G.cars.push(car);
+    };
+
+    // Aparecer 4 autos inmediatamente
+    for(let i=0;i<4;i++) setTimeout(spawnCar, i*200);
+
+    const cfg = LEVELS[level];
+    G.spawnT = setInterval(()=>{ if(G.state==='PLAYING') spawnCar(); }, cfg.spawn);
+
+    G.dogT = setInterval(()=>{
+        if(G.state!=='PLAYING') return;
+        const dog = new Dog();
+        const sides=[[-50,0],[50,0],[0,-40],[0,30]];
+        const [px,pz]=sides[Math.floor(Math.random()*4)];
+        dog.mesh.position.set(px,0,pz);
+        dog.mesh.rotation.y = Math.atan2(-px,-pz);
+        G.dogs.push(dog);
+    }, cfg.dogs);
+
+    console.log('[BETO] startGame nivel',level,'— Beto en',G.beto.mesh.position);
+}
+
+function gameOver(reason){
+    G.state='GAMEOVER';
+    clearInterval(G.spawnT); clearInterval(G.dogT);
+    document.getElementById('game-over-reason').textContent=reason;
+    document.getElementById('final-score').textContent=G.money;
+    document.getElementById('game-over-screen').style.display='block';
+}
+
+// ── Click en el suelo ────────────────────────────────────────────
+canvas.addEventListener('click', e=>{
+    if(G.state!=='PLAYING'||!G.beto) return;
+    const rect=canvas.getBoundingClientRect();
+    const nx=((e.clientX-rect.left)/rect.width)*2-1;
+    const ny=-((e.clientY-rect.top)/rect.height)*2+1;
+    const ray=new THREE.Raycaster();
+    ray.setFromCamera(new THREE.Vector2(nx,ny), camera);
+    const hits=ray.intersectObject(window._ground);
+    if(!hits.length) return;
+    const pt=hits[0].point;
+    G.beto.moveTo(pt.x, pt.z);
+
+    // Marcador visual
+    const mat=new THREE.MeshLambertMaterial({color:0xFFFF00,transparent:true,opacity:0.9});
+    const mk=new THREE.Mesh(new THREE.BoxGeometry(1.2,0.15,1.2),mat);
+    mk.position.set(pt.x,0.08,pt.z);
+    scene.add(mk);
+    let op=0.9;
+    const iv=setInterval(()=>{op-=0.08;mat.opacity=op;if(op<=0){clearInterval(iv);scene.remove(mk);}},70);
+
+    // Auto cercano para guiar
+    for(const car of G.cars){
+        if(car.state!=='waiting') continue;
+        if(car.mesh.position.distanceTo(G.beto.mesh.position)<12){
+            car.park(pt.x, pt.z);
+            toast('¡Auto guiado! 🚗','#4CAF50');
+            break;
+        }
+    }
 });
 
-document.querySelectorAll('.level-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-        document.querySelectorAll('.level-btn').forEach(b => b.classList.remove('selected'));
+// ── Teclado ──────────────────────────────────────────────────────
+document.addEventListener('keydown', e=>{
+    const k=e.key.toLowerCase()
+        .replace('arrowup','w').replace('arrowdown','s')
+        .replace('arrowleft','a').replace('arrowright','d');
+    G.keys[k]=true;
+    if(G.state==='PLAYING'&&G.beto) G.beto.move(G.keys);
+});
+document.addEventListener('keyup', e=>{
+    const k=e.key.toLowerCase()
+        .replace('arrowup','w').replace('arrowdown','s')
+        .replace('arrowleft','a').replace('arrowright','d');
+    delete G.keys[k];
+});
+
+// ═══════════════════════════════════════════════════════
+//  GAME LOOP
+// ═══════════════════════════════════════════════════════
+let lastT = performance.now();
+(function loop(t){
+    requestAnimationFrame(loop);
+    const dt = Math.min((t-lastT)/1000, 0.1);
+    lastT = t;
+
+    if(G.state==='PLAYING'){
+        G.beto?.update(dt);
+        G.cars.forEach(c=>c.update(dt));
+        G.dogs.forEach(d=>d.update(dt));
+
+        // Cobrar autos estacionados
+        G.cars.forEach(car=>{
+            if(car.state==='parked'&&!car.collected&&G.beto){
+                if(car.mesh.position.distanceTo(G.beto.mesh.position)<6){
+                    car.collected=true;
+                    const gain=15+Math.floor(Math.random()*35);
+                    G.money+=gain;
+                    toast(`+$${gain} 💰`,'#FFD700');
+                    setTimeout(()=>car.leave(),1500);
+                }
+            }
+        });
+
+        // Perros atacan
+        G.dogs.forEach(dog=>{
+            if(dog.state==='wandering'&&G.beto){
+                if(dog.mesh.position.distanceTo(G.beto.mesh.position)<4){
+                    dog.attack();
+                    G.money=Math.max(0,G.money-15);
+                    toast('¡Mordida! -$15 🐕','#FF5252');
+                }
+            }
+        });
+
+        // Limpiar invisibles
+        G.cars=G.cars.filter(c=>{ if(!c.visible){scene.remove(c.mesh);return false;} return true; });
+        G.dogs=G.dogs.filter(d=>{ if(!d.visible){scene.remove(d.mesh);return false;} return true; });
+
+        if(G.money<=0) gameOver('¡Sin plata! 💸');
+    }
+
+    // HUD
+    const $=id=>document.getElementById(id);
+    if($('money-display'))  $('money-display').textContent =`$${G.money}`;
+    if($('lives-display'))  $('lives-display').textContent =G.lives;
+    if($('cars-display'))   $('cars-display').textContent  =`${G.cars.length}/${G.maxCars}`;
+    if($('level-display'))  $('level-display').textContent =`${G.level} - ${LEVELS[G.level]?.label||''}`;
+
+    renderer.render(scene, camera);
+})(lastT);
+
+// ── UI ───────────────────────────────────────────────────────────
+document.getElementById('start-btn').addEventListener('click',()=>{
+    document.getElementById('start-screen').style.display='none';
+    document.getElementById('level-select').style.display='block';
+});
+document.querySelectorAll('.level-btn').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+        document.querySelectorAll('.level-btn').forEach(b=>b.classList.remove('selected'));
         btn.classList.add('selected');
-        game.startGame(parseInt(btn.dataset.level));
-        document.getElementById('level-select').style.display = 'none';
+        startGame(parseInt(btn.dataset.level));
+        document.getElementById('level-select').style.display='none';
     });
 });
-
-document.getElementById('restart-btn').addEventListener('click', () => {
-    document.getElementById('game-over-screen').style.display = 'none';
-    document.getElementById('start-screen').style.display = 'block';
+document.getElementById('restart-btn').addEventListener('click',()=>{
+    document.getElementById('game-over-screen').style.display='none';
+    document.getElementById('start-screen').style.display='block';
 });
