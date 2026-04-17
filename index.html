@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>La Vida de Beto - El Juego</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- Contenedor principal del juego -->
+    <div id="game-container">
+        <!-- Canvas 3D -->
+        <canvas id="game-canvas"></canvas>
+
+        <!-- UI Superior -->
+        <div id="ui-top">
+            <div class="stat-box">
+                <span class="stat-label">Plata:</span>
+                <span class="stat-value" id="money-display">$100</span>
+            </div>
+            <div class="stat-box">
+                <span class="stat-label">Vidas:</span>
+                <span class="stat-value" id="lives-display">3</span>
+            </div>
+            <div class="stat-box">
+                <span class="stat-label">Nivel:</span>
+                <span class="stat-value" id="level-display">1 - La Calle</span>
+            </div>
+            <div class="stat-box">
+                <span class="stat-label">Autos:</span>
+                <span class="stat-value" id="cars-display">0/20</span>
+            </div>
+        </div>
+
+        <!-- HUD de Juego -->
+        <div id="game-hud">
+            <!-- Barra de tiempo para estacionar -->
+            <div id="parking-timer-container" style="display: none;">
+                <div class="timer-bar">
+                    <div id="parking-timer-fill" class="timer-fill"></div>
+                </div>
+                <p class="timer-text">Marcá el lugar rápido!</p>
+            </div>
+
+            <!-- Barra de tiempo para cobrar -->
+            <div id="cash-timer-container" style="display: none;">
+                <div class="timer-bar">
+                    <div id="cash-timer-fill" class="timer-fill"></div>
+                </div>
+                <p class="timer-text">¡Cobrá antes de que se vaya!</p>
+            </div>
+
+            <!-- Instrucciones -->
+            <div id="instructions">
+                <p> WASD / Flechas: Moverse | Click: Marcar estacionamiento</p>
+            </div>
+        </div>
+
+        <!-- Pantalla de Game Over -->
+        <div id="game-over-screen" class="modal" style="display: none;">
+            <h2>¡GAME OVER!</h2>
+            <p id="game-over-reason"></p>
+            <p>Puntaje final: <span id="final-score">0</span></p>
+            <button id="restart-btn">Jugar de nuevo</button>
+        </div>
+
+        <!-- Pantalla de Inicio -->
+        <div id="start-screen" class="modal">
+            <h1>LA VIDA DE BETO</h1>
+            <p>Beto tiene 15 años y trabaja organizando el estacionamiento.</p>
+            <ul>
+                <li>🟢 Guíale a los autos donde estacionar</li>
+                <li>🟡 Cobráles cuando se bajen (antes de que se vayan)</li>
+                <li>🔴 Espanta a los perros antes de que meanen los autos</li>
+            </ul>
+            <p><strong>¡Cuidado! Si se llena la plaza o te quedás sin plata, perdés.</strong></p>
+            <button id="start-btn" class="primary-btn">JUGAR</button>
+        </div>
+
+        <!-- Navegación de Niveles -->
+        <div id="level-select" style="display: none;">
+            <h2>Seleccioná el nivel</h2>
+            <button class="level-btn selected" data-level="1">
+                🏙️ Nivel 1: La Calle<br><small>Pocos autos, pocos perros</small>
+            </button>
+            <button class="level-btn" data-level="2">
+                🏫 Nivel 2: La Plaza<br><small>Más autos, más perros</small>
+            </button>
+            <button class="level-btn" data-level="3">
+                🏘️ Nivel 3: 4 Manzanas<br><small>¡Muchísimo caos!</small>
+            </button>
+        </div>
+    </div>
+
+    <!-- Three.js desde CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+    <!-- Scripts del juego -->
+    <script src="index.js"></script>
+</body>
+</html>
