@@ -622,8 +622,8 @@ class GameEngine {
         this.renderer.setSize(window.innerWidth, window.innerHeight);
         this.renderer.shadowMap.enabled = true;
 
-        this.camera.position.set(0, CONFIG.cameraHeight, CONFIG.cameraDistance);
-        this.camera.lookAt(0, 0, 0);
+        this.camera.position.set(0, 25, 45);
+        this.camera.lookAt(0, 0, -10);
 
         const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
         this.scene.add(ambientLight);
@@ -784,7 +784,7 @@ class GameEngine {
                 return;
             }
             const car = new Car(this.scene);
-            car.mesh.position.set((Math.random() - 0.5) * 60, 0.5, -50 + Math.random() * 20);
+            car.mesh.position.set((Math.random() - 0.5) * 60, 0.5, -20 + Math.random() * 10);
             GAME.entities.cars.push(car);
         }, levelConfig.spawnRate || 1000);
 

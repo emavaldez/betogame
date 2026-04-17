@@ -92,7 +92,16 @@
         </div>
     </div>
 
-    <!-- Three.js desde CDN -->
+    <!-- Import map para Three.js como ES module -->
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.module.js"
+        }
+    }
+    </script>
+
+    <!-- Script principal del juego -->
     <script type="module" src="/index.js"></script>
 </body>
 </html>
