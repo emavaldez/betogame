@@ -2,8 +2,6 @@
 import * as THREE from 'three';
 
 // ── Cámara isométrica clara ──────────────────────────────────────
-// La cámara mira al origen (0,0,0) desde arriba-atrás.
-// Todo el contenido del juego vive alrededor de (0,0,0).
 const CAM_POS  = new THREE.Vector3(0, 45, 55);
 const CAM_LOOK = new THREE.Vector3(0, 0, 0);
 
@@ -122,14 +120,7 @@ scene.add(sun);
         scene.add(g);
     });
 
-    // Árbol de prueba en la posición de Beto (para debug)
-    const t = new THREE.Mesh(new THREE.CylinderGeometry(0.4,0.5,5,8), tMat);
-    t.position.set(0, 2.5, 5);
-    scene.add(t);
-    const g = new THREE.Mesh(new THREE.SphereGeometry(3.5,8,6), gMat);
-    g.position.set(0, 7.5, 5);
-    scene.add(g);
-})();
+})(); // Fin buildScene
 
 // ═══════════════════════════════════════════════════════
 //  ENTIDADES
