@@ -129,12 +129,14 @@ scene.add(sun);
 
 class Beto {
     constructor() {
+        console.log('[BETO] Beto constructor called');
         this.speed = 0.15;
         this.target = null;
         this.wc = 0;
         this._build();
     }
     _build() {
+        console.log('[BETO] Beto._build called');
         const g   = new THREE.Group();
         const sk  = new THREE.MeshLambertMaterial({ color: 0xFFCCAA });
         const bl  = new THREE.MeshLambertMaterial({ color: 0x1122CC });
@@ -383,6 +385,7 @@ function toast(txt, color='#FFD700'){
 }
 
 function startGame(level){
+    console.log('[BETO] startGame called, level:', level);
     // Limpiar entidades anteriores
     G.cars.forEach(c=>scene.remove(c.mesh));
     G.dogs.forEach(d=>scene.remove(d.mesh));
@@ -395,23 +398,30 @@ function startGame(level){
     G.cars=[]; G.dogs=[]; G.keys={};
 
     // Crear Beto en el centro del asfalto, visible desde la cámara
+    console.log('[BETO] Creating Beto...');
     G.beto = new Beto();
-    G.beto.mesh.position.set(0, 0, 5);   // justo frente a la cámara
+    console.log('[BETO] Beto created, mesh:', G.beto.mesh, 'children:', G.beto.mesh?.children?.length);
+    G.beto.mesh.position.set(0, 0.15, 5);   // elevado para evitar z-fighting
+    console.log('[BETO] Beto position:', G.beto.mesh.position);
 
     // Autos iniciales — zona de estacionamiento visible
     const spawnCar = () => {
         if(G.cars.length >= G.maxCars) return;
+        console.log('[BETO] Spawning car', G.cars.length + 1);
         const car = new Car();
+        console.log('[BETO] Car created, mesh:', car.mesh, 'children:', car.mesh?.children?.length);
         car.mesh.position.set(
             (Math.random()-0.5)*70,
-            0,
+            0.15,
             -5 + (Math.random()-0.5)*10   // en el asfalto, a la vista
         );
+        console.log('[BETO] Car position:', car.mesh.position);
         G.cars.push(car);
     };
 
     // Aparecer 4 autos inmediatamente
     for(let i=0;i<4;i++) setTimeout(spawnCar, i*200);
+    console.log('[BETO] Scheduled 4 cars to spawn');
 
     const cfg = LEVELS[level];
     G.spawnT = setInterval(()=>{ if(G.state==='PLAYING') spawnCar(); }, cfg.spawn);
