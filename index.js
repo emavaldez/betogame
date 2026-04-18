@@ -159,17 +159,17 @@ class Beto {
             return mesh;
         };
 
-        this.lL = box(0.45,1.0,0.45, lb,  -0.28,0.5,0);
-        this.lR = box(0.45,1.0,0.45, lb,   0.28,0.5,0);
-                  box(1.2, 1.2,0.65, bl,   0,   1.8,0);   // torso
-                  box(1.25,0.4,0.70, ye,   0,   1.8,0);   // franja
-        this.aL = box(0.4, 1.0,0.4,  bl,  -0.82,1.8,0);
-        this.aR = box(0.4, 1.0,0.4,  bl,   0.82,1.8,0);
-                  box(0.5, 0.35,0.5, sk,   0,   2.6,0);   // cuello
-                  box(0.85,0.9,0.80, sk,   0,   3.22,0);  // cabeza
-                  box(0.17,0.17,0.1, blk, -0.22,3.28,0.41); // ojo L
-                  box(0.17,0.17,0.1, blk,  0.22,3.28,0.41); // ojo R
-                  box(0.9, 0.22,0.85,ye,   0,   3.75,0);  // bandana
+        this.lL = box(0.45,1.0,0.45, lb,  -0.28,0,0);
+        this.lR = box(0.45,1.0,0.45, lb,   0.28,0,0);
+                  box(1.2, 1.2,0.65, bl,   0,   1.3,0);   // torso
+                  box(1.25,0.4,0.70, ye,   0,   1.3,0);   // franja
+        this.aL = box(0.4, 1.0,0.4,  bl,  -0.82,1.3,0);
+        this.aR = box(0.4, 1.0,0.4,  bl,   0.82,1.3,0);
+                  box(0.5, 0.35,0.5, sk,   0,   2.1,0);   // cuello
+                  box(0.85,0.9,0.80, sk,   0,   2.72,0);  // cabeza
+                  box(0.17,0.17,0.1, blk, -0.22,2.78,0.41); // ojo L
+                  box(0.17,0.17,0.1, blk,  0.22,2.78,0.41); // ojo R
+                  box(0.9, 0.22,0.85,ye,   0,   3.25,0);  // bandana
 
         this.mesh = g;
         scene.add(g);
@@ -230,13 +230,13 @@ class Car {
             mesh.position.set(x,y,z); g.add(mesh);
         };
 
-        box(2.6,0.8,5.0,  cMat, 0, 0.4,  0);    // chasis
-        box(2.2,1.0,2.8,  cMat, 0, 1.3,  0.2);  // cabina
-        box(2.1,0.8,0.12, gMat, 0, 1.3, -1.2);  // parabrisas
+        box(2.6,0.8,5.0,  cMat, 0, 0.48,  0);    // chasis
+        box(2.2,1.0,2.8,  cMat, 0, 1.38,  0.2);  // cabina
+        box(2.1,0.8,0.12, gMat, 0, 1.38, -1.2);  // parabrisas
 
         // ruedas
         const wG = new THREE.CylinderGeometry(0.48,0.48,0.28,12);
-        [[-1.2,0,-1.8],[1.2,0,-1.8],[-1.2,0,1.8],[1.2,0,1.8]].forEach(p=>{
+        [[-1.2,0.48,-1.8],[1.2,0.48,-1.8],[-1.2,0.48,1.8],[1.2,0.48,1.8]].forEach(p=>{
             const w = new THREE.Mesh(wG, dMat);
             w.rotation.z = Math.PI/2;
             w.position.set(...p);
@@ -409,7 +409,7 @@ function startGame(level){
     console.log('[BETO] Creating Beto...');
     G.beto = new Beto();
     console.log('[BETO] Beto created, mesh:', G.beto.mesh, 'children:', G.beto.mesh?.children?.length);
-    G.beto.mesh.position.set(0, 0.15, 5);   // elevado para evitar z-fighting
+    G.beto.mesh.position.set(0, 1.5, 5);   // elevado para estar sobre el asfalto
     console.log('[BETO] Beto position:', G.beto.mesh.position);
 
     // Autos iniciales — zona de estacionamiento visible
