@@ -409,7 +409,7 @@ function startGame(level){
     console.log('[BETO] Creating Beto...');
     G.beto = new Beto();
     console.log('[BETO] Beto created, mesh:', G.beto.mesh, 'children:', G.beto.mesh?.children?.length);
-    G.beto.mesh.position.set(0, 1.5, 5);   // elevado para estar sobre el asfalto
+    G.beto.mesh.position.set(0, 2.5, 5);   // en la posición del árbol de prueba
     console.log('[BETO] Beto position:', G.beto.mesh.position);
 
     // Autos iniciales — zona de estacionamiento visible
