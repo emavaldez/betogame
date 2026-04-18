@@ -121,6 +121,14 @@ scene.add(sun);
         g.position.set(x, 7.5, 10);
         scene.add(g);
     });
+
+    // Árbol de prueba en la posición de Beto (para debug)
+    const t = new THREE.Mesh(new THREE.CylinderGeometry(0.4,0.5,5,8), tMat);
+    t.position.set(0, 2.5, 5);
+    scene.add(t);
+    const g = new THREE.Mesh(new THREE.SphereGeometry(3.5,8,6), gMat);
+    g.position.set(0, 7.5, 5);
+    scene.add(g);
 })();
 
 // ═══════════════════════════════════════════════════════
