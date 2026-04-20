@@ -400,7 +400,7 @@ function startGame(level){
     
     // --- CORRECCIÓN AQUÍ ---
     // Antes estaba en 2.5 (flotando), ahora está en 0 (suelo)
-    G.beto.mesh.position.set(0, 0, 5);   // Posición corregida
+    G.beto.mesh.position.set(0, 0.5, 8);   // Posición corregida
     console.log('[BETO] Beto position:', G.beto.mesh.position);
 
     const spawnCar = () => {
