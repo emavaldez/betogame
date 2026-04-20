@@ -438,6 +438,23 @@ function startGame(level){
     }, cfg.dogs);
 
     console.log('[BETO] startGame nivel',level,'— Beto en',G.beto.mesh.position);
+
+    const debugGeo = new THREE.BoxGeometry(8, 8, 8);
+    const debugMat = new THREE.MeshLambertMaterial({ color: 0xFF0000 });
+    const debugCube = new THREE.Mesh(debugGeo, debugMat);
+    debugCube.position.set(0, 4, 10);
+    scene.add(debugCube);
+
+    const debugGeo2 = new THREE.BoxGeometry(4, 4, 4);
+    const debugMat2 = new THREE.MeshLambertMaterial({ color: 0x00FF00 });
+    const debugCube2 = new THREE.Mesh(debugGeo2, debugMat2);
+    debugCube2.position.copy(G.beto.mesh.position);
+    debugCube2.position.y = 2;
+    scene.add(debugCube2);
+
+    console.log('Beto position:', G.beto.mesh.position);
+    console.log('Scene children:', scene.children.length);
+
 }
 
 function gameOver(reason){
