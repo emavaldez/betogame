@@ -418,6 +418,7 @@ function startGame(level){
         );
         console.log('[BETO] Car position:', car.mesh.position);
         G.cars.push(car);
+        scene.add(car.mesh);
 
     };
 
