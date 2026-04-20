@@ -400,14 +400,17 @@ function startGame(level){
     
     // --- CORRECCIÓN AQUÍ ---
     // Antes estaba en 2.5 (flotando), ahora está en 0 (suelo)
-    G.beto.mesh.position.set(0, 0.5, 8);   // Posición corregida
+    G.beto.mesh.position.set(0, 0.5, 12);   // Posición corregida
+    G.beto.mesh.scale.set(3, 3, 3);
     console.log('[BETO] Beto position:', G.beto.mesh.position);
 
     const spawnCar = () => {
         if(G.cars.length >= G.maxCars) return;
         console.log('[BETO] Spawning car', G.cars.length + 1);
         const car = new Car();
+
         console.log('[BETO] Car created, mesh:', car.mesh, 'children:', car.mesh?.children?.length);
+        car.mesh.scale.set(2, 2, 2);
         car.mesh.position.set(
             (Math.random()-0.5)*70,
             0.15,
@@ -415,6 +418,7 @@ function startGame(level){
         );
         console.log('[BETO] Car position:', car.mesh.position);
         G.cars.push(car);
+
     };
 
     for(let i=0;i<4;i++) setTimeout(spawnCar, i*200);
