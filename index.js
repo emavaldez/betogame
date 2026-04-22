@@ -1,5 +1,5 @@
 // LA VIDA DE BETO
-// import * as THREE from 'three';
+import * as THREE from 'three';
 
 // ── Cámara isométrica clara ──────────────────────────────────────
 const CAM_POS  = new THREE.Vector3(0, 45, 55);
@@ -386,23 +386,44 @@ function startGame(level){
     G.cars.forEach(c=>scene.remove(c.mesh));
     G.dogs.forEach(d=>scene.remove(d.mesh));
     if(G.beto) scene.remove(G.beto.mesh);
+   // clearInterval(G.spawnT);
+    //clearInterval(G.dogT);
+
+
+    // ═══════════════════════════════════════════════════════
+    //  INICIALIZA BETO (Character Initialization)
+    // ═══════════════════════════════════════════════════════
+    const mat = new THREE.MeshLambertMaterial({color: 0xFF6633});
+    const body = new THREE.Mesh(new THREE.BoxGeometry(1, 2, 0.5), mat);
+    const head = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.7, 0.5), mat);
+    
+    body.position.set(0, 1, 0);
+    head.position.set(0, 2.35, 0);
+    
+    G.beto = {
+        mesh: body,
+        head: head,
+        position: {x: 0, z: 0},
+        moveTo: (x, z) => {
+            G.beto.position = {x, z};
+            G.beto.mesh.position.set(x, 1, z);
+            if(G.beto.head) G.beto.head.position.set(x, 2.35, z);
+        }
+    };
+    
+    scene.add(body);
+    scene.add(head);
+    
+    // Clear spawning intervals
     clearInterval(G.spawnT);
     clearInterval(G.dogT);
-
-    G.state='PLAYING'; G.level=level;
-    G.money=100; G.lives=3;
-    G.cars=[]; G.dogs=[]; G.keys={};
-
-    // Crear Beto en el centro del asfalto, visible desde la cámara
-    console.log('[BETO] Creating Beto...');
-    G.beto = new Beto();
-    console.log('[BETO] Beto created, mesh:', G.beto.mesh, 'children:', G.beto.mesh?.children?.length);
     
-    // --- CORRECCIÓN AQUÍ ---
-    // Antes estaba en 2.5 (flotando), ahora está en 0 (suelo)
-    G.beto.mesh.position.set(0, 0.5, 12);   // Posición corregida
-    G.beto.mesh.scale.set(3, 3, 3);
-    console.log('[BETO] Beto position:', G.beto.mesh.position);
+    // Start spawning cars and dogs based on level
+    G.spawnT = setInterval(() => spawnCar(level), LEVELS[level]?.spawn || 2000);
+    G.dogT = setInterval(() => spawnDog(), LEVELS[level]?.dogs || 5000);
+    
+    G.state = 'PLAYING';
+    }
 
     const spawnCar = () => {
         if(G.cars.length >= G.maxCars) return;
