@@ -1,5 +1,5 @@
 // LA VIDA DE BETO
-// import * as THREE from 'three';
+import * as THREE from 'three';
 
 // ── Cámara isométrica clara ──────────────────────────────────────
 const CAM_POS  = new THREE.Vector3(0, 45, 55);
@@ -381,101 +381,81 @@ function toast(txt, color='#FFD700'){
 
 function startGame(level){
     console.log('[BETO] startGame called, level:', level);
-    
+
     // Limpiar entidades anteriores
     G.cars.forEach(c=>scene.remove(c.mesh));
     G.dogs.forEach(d=>scene.remove(d.mesh));
     if(G.beto) scene.remove(G.beto.mesh);
-   // clearInterval(G.spawnT);
-    //clearInterval(G.dogT);
-
-
-    // ═══════════════════════════════════════════════════════
-    //  INICIALIZA BETO (Character Initialization)
-    // ═══════════════════════════════════════════════════════
-    const mat = new THREE.MeshLambertMaterial({color: 0xFF6633});
-    const body = new THREE.Mesh(new THREE.BoxGeometry(1, 2, 0.5), mat);
-    const head = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.7, 0.5), mat);
-    
-    body.position.set(0, 1, 0);
-    head.position.set(0, 2.35, 0);
-    
-    G.beto = {
-        mesh: body,
-        head: head,
-        position: {x: 0, z: 0},
-        moveTo: (x, z) => {
-            G.beto.position = {x, z};
-            G.beto.mesh.position.set(x, 1, z);
-            if(G.beto.head) G.beto.head.position.set(x, 2.35, z);
-        }
-    };
-    
-    scene.add(body);
-    scene.add(head);
-    
-    // Clear spawning intervals
+    if(window._debugCubes) window._debugCubes.forEach(c=>scene.remove(c));
     clearInterval(G.spawnT);
     clearInterval(G.dogT);
-    
-    // Start spawning cars and dogs based on level
-    G.spawnT = setInterval(() => spawnCar(level), LEVELS[level]?.spawn || 2000);
-    G.dogT = setInterval(() => spawnDog(), LEVELS[level]?.dogs || 5000);
-    
-    G.state = 'PLAYING';
 
-    const spawnCar = () => {
-        if(G.cars.length >= G.maxCars) return;
-        console.log('[BETO] Spawning car', G.cars.length + 1);
-        const car = new Car();
+    G.cars=[];
+    G.dogs=[];
+    G.level=level;
+    G.money=100;
+    G.lives=3;
+    G.state='PLAYING';
 
-        console.log('[BETO] Car created, mesh:', car.mesh, 'children:', car.mesh?.children?.length);
-        car.mesh.scale.set(2, 2, 2);
+    // Crear Beto con la clase completa
+    G.beto=new Beto();
+    G.beto.mesh.position.set(0,0,0);
+
+    const cfg=LEVELS[level];
+
+    const spawnCar=()=>{
+        if(G.cars.length>=G.maxCars) return;
+        console.log('[BETO] Spawning car', G.cars.length+1);
+        const car=new Car();
+        car.mesh.scale.set(2,2,2);
         car.mesh.position.set(
             (Math.random()-0.5)*70,
             0.15,
-            -5 + (Math.random()-0.5)*10
+            -5+(Math.random()-0.5)*10
         );
         console.log('[BETO] Car position:', car.mesh.position);
         G.cars.push(car);
-        scene.add(car.mesh);
-
     };
 
-    for(let i=0;i<4;i++) setTimeout(spawnCar, i*200);
-    console.log('[BETO] Scheduled 4 cars to spawn');
-
-    const cfg = LEVELS[level];
-    G.spawnT = setInterval(()=>{ if(G.state==='PLAYING') spawnCar(); }, cfg.spawn);
-
-    G.dogT = setInterval(()=>{
-        if(G.state!=='PLAYING') return;
-        const dog = new Dog();
+    const spawnDog=()=>{
+        if(G.dogs.length>=6) return;
+        const dog=new Dog();
         const sides=[[-50,0],[50,0],[0,-40],[0,30]];
         const [px,pz]=sides[Math.floor(Math.random()*4)];
         dog.mesh.position.set(px,0,pz);
-        dog.mesh.rotation.y = Math.atan2(-px,-pz);
+        dog.mesh.rotation.y=Math.atan2(-px,-pz);
         G.dogs.push(dog);
-    }, cfg.dogs);
+    };
+
+    // Spawn inicial
+    for(let i=0;i<4;i++) setTimeout(spawnCar, i*200);
+    console.log('[BETO] Scheduled 4 cars to spawn');
+
+    // Intervalos
+    G.spawnT=setInterval(()=>{ if(G.state==='PLAYING') spawnCar(); }, cfg.spawn);
+    G.dogT=setInterval(()=>{ if(G.state==='PLAYING') spawnDog(); }, cfg.dogs);
 
     console.log('[BETO] startGame nivel',level,'— Beto en',G.beto.mesh.position);
 
-    const debugGeo = new THREE.BoxGeometry(8, 8, 8);
-    const debugMat = new THREE.MeshLambertMaterial({ color: 0xFF0000 });
-    const debugCube = new THREE.Mesh(debugGeo, debugMat);
-    debugCube.position.set(0, 4, 10);
+    // Debug cubes (limpiables)
+    window._debugCubes=[];
+    const debugGeo=new THREE.BoxGeometry(8,8,8);
+    const debugMat=new THREE.MeshLambertMaterial({ color: 0xFF0000 });
+    const debugCube=new THREE.Mesh(debugGeo,debugMat);
+    debugCube.position.set(0,4,10);
     scene.add(debugCube);
+    window._debugCubes.push(debugCube);
 
-    const debugGeo2 = new THREE.BoxGeometry(4, 4, 4);
-    const debugMat2 = new THREE.MeshLambertMaterial({ color: 0x00FF00 });
-    const debugCube2 = new THREE.Mesh(debugGeo2, debugMat2);
+    const debugGeo2=new THREE.BoxGeometry(4,4,4);
+    const debugMat2=new THREE.MeshLambertMaterial({ color: 0x00FF00 });
+    const debugCube2=new THREE.Mesh(debugGeo2,debugMat2);
     debugCube2.position.copy(G.beto.mesh.position);
-    debugCube2.position.y = 2;
+    debugCube2.position.y=2;
     scene.add(debugCube2);
+    window._debugCubes.push(debugCube2);
 
     console.log('Beto position:', G.beto.mesh.position);
     console.log('Scene children:', scene.children.length);
-
 }
 
 function gameOver(reason){
@@ -518,17 +498,19 @@ canvas.addEventListener('click', e=>{
 
 // ── Teclado ──────────────────────────────────────────────────────
 document.addEventListener('keydown', e=>{
-    const k=e.key.toLowerCase()
-        .replace('arrowup','w').replace('arrowdown','s')
-        .replace('arrowleft','a').replace('arrowright','d');
-    G.keys[k]=true;
+    const k=e.key.toLowerCase();
+    if(k==='arrowup'||k==='w'){ G.keys.w=true; G.keys.arrowup=true; }
+    if(k==='arrowdown'||k==='s'){ G.keys.s=true; G.keys.arrowdown=true; }
+    if(k==='arrowleft'||k==='a'){ G.keys.a=true; G.keys.arrowleft=true; }
+    if(k==='arrowright'||k==='d'){ G.keys.d=true; G.keys.arrowright=true; }
     if(G.state==='PLAYING'&&G.beto) G.beto.move(G.keys);
 });
 document.addEventListener('keyup', e=>{
-    const k=e.key.toLowerCase()
-        .replace('arrowup','w').replace('arrowdown','s')
-        .replace('arrowleft','a').replace('arrowright','d');
-    delete G.keys[k];
+    const k=e.key.toLowerCase();
+    if(k==='arrowup'||k==='w'){ delete G.keys.w; delete G.keys.arrowup; }
+    if(k==='arrowdown'||k==='s'){ delete G.keys.s; delete G.keys.arrowdown; }
+    if(k==='arrowleft'||k==='a'){ delete G.keys.a; delete G.keys.arrowleft; }
+    if(k==='arrowright'||k==='d'){ delete G.keys.d; delete G.keys.arrowright; }
 });
 
 // ═══════════════════════════════════════════════════════
