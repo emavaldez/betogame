@@ -423,7 +423,6 @@ function startGame(level){
     G.dogT = setInterval(() => spawnDog(), LEVELS[level]?.dogs || 5000);
     
     G.state = 'PLAYING';
-    }
 
     const spawnCar = () => {
         if(G.cars.length >= G.maxCars) return;
