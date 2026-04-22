@@ -1,5 +1,5 @@
 // LA VIDA DE BETO
-import * as THREE from 'three';
+// import * as THREE from 'three';
 
 // ── Cámara isométrica clara ──────────────────────────────────────
 const CAM_POS  = new THREE.Vector3(0, 45, 55);
