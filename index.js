@@ -3,7 +3,7 @@ import * as THREE from 'three';
 
 const CAM_POS  = new THREE.Vector3(0, 35, 45);
 const CAM_LOOK = new THREE.Vector3(0, 0, 0);
-const MAP = 40;
+let MAP = 40;
 
 const canvas = document.getElementById('game-canvas');
 const scene  = new THREE.Scene();
@@ -61,7 +61,6 @@ let SLOT_LENGTH = 18;
 let WAIT_LINE_Z = -18;
 
 function clearSceneStatic(){
-    // Removemos todo lo que no sea luz ni renderer
     const toRemove=[];
     scene.traverse(child=>{
         if(child.type==='Mesh' && child!==window._ground) toRemove.push(child);
@@ -83,18 +82,16 @@ function buildSceneLevel(level){
     const wMat=new THREE.MeshLambertMaterial({color:0xFFFFFF});
 
     if(level===1){
-        // ══ NIVEL 1: LA CALLE (Casas Caminito) ══
+        MAP=40;
         SLOT_CENTERS=[-40,-32,-24,-16,-8,0,8,16,24,32,40];
         SLOT_WIDTH=8; SLOT_LENGTH=18; WAIT_LINE_Z=-18;
 
-        // Asfalto
         const asphalt=new THREE.Mesh(
             new THREE.PlaneGeometry(100,50),
             new THREE.MeshLambertMaterial({color:0x444444})
         );
         asphalt.rotation.x=-Math.PI/2; asphalt.position.y=0.01; scene.add(asphalt);
 
-        // Líneas blancas
         for(let x=-44;x<=44;x+=SLOT_WIDTH){
             const l=new THREE.Mesh(new THREE.PlaneGeometry(0.5,18),wMat);
             l.rotation.x=-Math.PI/2; l.position.set(x,0.03,0); scene.add(l);
@@ -104,7 +101,6 @@ function buildSceneLevel(level){
             l.rotation.x=-Math.PI/2; l.position.set(0,0.03,z); scene.add(l);
         });
 
-        // Casas Caminito
         const colors=[0xFF4444,0xFFD700,0x44AAFF,0x55CC55,0xFF88CC,0xFFAA33,0x9966FF,0x33DDAA];
         for(let i=0;i<9;i++){
             const h=9+Math.random()*7;
@@ -122,7 +118,6 @@ function buildSceneLevel(level){
             door.position.set(cx,2,-38.5); scene.add(door);
         }
 
-        // Faroles
         const pMat=new THREE.MeshLambertMaterial({color:0x999999});
         const lMat=new THREE.MeshLambertMaterial({color:0xFFFF88});
         [-38,-20,0,20,38].forEach(x=>{
@@ -133,42 +128,37 @@ function buildSceneLevel(level){
         });
 
     }else if(level===2){
-        // ══ NIVEL 2: LA PLAZA (Parque verde, bancos, más slots) ══
-        SLOT_CENTERS=[-56,-48,-40,-32,-24,-16,-8,0,8,16,24,32,40,48,56];
+        MAP=50;
+        SLOT_CENTERS=[-48,-40,-32,-24,-16,-8,0,8,16,24,32,40,48];
         SLOT_WIDTH=8; SLOT_LENGTH=18; WAIT_LINE_Z=-22;
 
-        // Asfalto más ancho
         const asphalt=new THREE.Mesh(
-            new THREE.PlaneGeometry(140,60),
+            new THREE.PlaneGeometry(120,60),
             new THREE.MeshLambertMaterial({color:0x555555})
         );
         asphalt.rotation.x=-Math.PI/2; asphalt.position.y=0.01; scene.add(asphalt);
 
-        // Líneas blancas
-        for(let x=-60;x<=60;x+=SLOT_WIDTH){
+        for(let x=-52;x<=52;x+=SLOT_WIDTH){
             const l=new THREE.Mesh(new THREE.PlaneGeometry(0.5,18),wMat);
             l.rotation.x=-Math.PI/2; l.position.set(x,0.03,0); scene.add(l);
         }
         [-9,9].forEach(z=>{
-            const l=new THREE.Mesh(new THREE.PlaneGeometry(140,0.5),wMat);
+            const l=new THREE.Mesh(new THREE.PlaneGeometry(120,0.5),wMat);
             l.rotation.x=-Math.PI/2; l.position.set(0,0.03,z); scene.add(l);
         });
 
-        // Césped de plaza al fondo
         const plaza=new THREE.Mesh(
-            new THREE.PlaneGeometry(160,40),
+            new THREE.PlaneGeometry(140,40),
             new THREE.MeshLambertMaterial({color:0x44AA33})
         );
         plaza.rotation.x=-Math.PI/2; plaza.position.set(0,0.01,-50); scene.add(plaza);
 
-        // Senderos de plaza (cruzados)
         const pathMat=new THREE.MeshLambertMaterial({color:0xCCAA77});
-        const pathH=new THREE.Mesh(new THREE.PlaneGeometry(160,4),pathMat);
+        const pathH=new THREE.Mesh(new THREE.PlaneGeometry(140,4),pathMat);
         pathH.rotation.x=-Math.PI/2; pathH.position.set(0,0.02,-50); scene.add(pathH);
         const pathV=new THREE.Mesh(new THREE.PlaneGeometry(4,40),pathMat);
         pathV.rotation.x=-Math.PI/2; pathV.position.set(0,0.02,-50); scene.add(pathV);
 
-        // Bancos
         const benchMat=new THREE.MeshLambertMaterial({color:0x8B4513});
         [-30,-10,10,30].forEach(x=>{
             const bench=new THREE.Mesh(new THREE.BoxGeometry(4,0.8,1.5),benchMat);
@@ -178,7 +168,6 @@ function buildSceneLevel(level){
             const leg2=leg.clone(); leg2.position.x=x+1.5; scene.add(leg2);
         });
 
-        // Árboles tipo plaza
         const tMat=new THREE.MeshLambertMaterial({color:0x795548});
         const gMat=new THREE.MeshLambertMaterial({color:0x2E7D32});
         [-50,-35,-20,20,35,50].forEach(x=>{
@@ -188,7 +177,6 @@ function buildSceneLevel(level){
             crown.position.set(x,9,-48); scene.add(crown);
         });
 
-        // Fuente central en la plaza
         const fountainBase=new THREE.Mesh(new THREE.CylinderGeometry(6,7,1.5,12),new THREE.MeshLambertMaterial({color:0x999999}));
         fountainBase.position.set(0,0.75,-50); scene.add(fountainBase);
         const fountainMid=new THREE.Mesh(new THREE.CylinderGeometry(3,4,2,12),new THREE.MeshLambertMaterial({color:0xAAAAAA}));
@@ -196,7 +184,6 @@ function buildSceneLevel(level){
         const water=new THREE.Mesh(new THREE.CylinderGeometry(2.5,2.5,0.3,12),new THREE.MeshLambertMaterial({color:0x44AAFF,transparent:true,opacity:0.7}));
         water.position.set(0,3.4,-50); scene.add(water);
 
-        // Faroles de plaza
         [-60,-40,-20,20,40,60].forEach(x=>{
             const pole=new THREE.Mesh(new THREE.CylinderGeometry(0.2,0.25,10,8),new THREE.MeshLambertMaterial({color:0x777777}));
             pole.position.set(x,5,-35); scene.add(pole);
@@ -205,28 +192,25 @@ function buildSceneLevel(level){
         });
 
     }else{
-        // ══ NIVEL 3: 4 MANZANAS (Estacionamiento enorme, fondo de edificios) ══
-        SLOT_CENTERS=[-72,-64,-56,-48,-40,-32,-24,-16,-8,0,8,16,24,32,40,48,56,64,72];
+        MAP=70;
+        SLOT_CENTERS=[-64,-56,-48,-40,-32,-24,-16,-8,0,8,16,24,32,40,48,56,64];
         SLOT_WIDTH=8; SLOT_LENGTH=18; WAIT_LINE_Z=-28;
 
-        // Asfalto enorme
         const asphalt=new THREE.Mesh(
-            new THREE.PlaneGeometry(180,80),
+            new THREE.PlaneGeometry(160,80),
             new THREE.MeshLambertMaterial({color:0x444444})
         );
         asphalt.rotation.x=-Math.PI/2; asphalt.position.y=0.01; scene.add(asphalt);
 
-        // Líneas blancas
-        for(let x=-76;x<=76;x+=SLOT_WIDTH){
+        for(let x=-68;x<=68;x+=SLOT_WIDTH){
             const l=new THREE.Mesh(new THREE.PlaneGeometry(0.5,18),wMat);
             l.rotation.x=-Math.PI/2; l.position.set(x,0.03,0); scene.add(l);
         }
         [-9,9].forEach(z=>{
-            const l=new THREE.Mesh(new THREE.PlaneGeometry(180,0.5),wMat);
+            const l=new THREE.Mesh(new THREE.PlaneGeometry(160,0.5),wMat);
             l.rotation.x=-Math.PI/2; l.position.set(0,0.03,z); scene.add(l);
         });
 
-        // Edificios de fondo (altos, grises)
         const bColors=[0x999999,0xAAAAAA,0x888888,0xBBBBBB,0x777777,0xCCCCCC];
         for(let i=0;i<7;i++){
             const h=20+Math.random()*15;
@@ -235,7 +219,6 @@ function buildSceneLevel(level){
             const col=bColors[i%bColors.length];
             const b=new THREE.Mesh(new THREE.BoxGeometry(w,h,10),new THREE.MeshLambertMaterial({color:col}));
             b.position.set(cx,h/2,-55); scene.add(b);
-            // Ventanas
             for(let fy=3;fy<h-2;fy+=4){
                 [-w/4,w/4].forEach(vx=>{
                     const win=new THREE.Mesh(new THREE.BoxGeometry(2,2.5,0.3),new THREE.MeshLambertMaterial({color:0x88BBFF}));
@@ -244,7 +227,6 @@ function buildSceneLevel(level){
             }
         }
 
-        // Postes de luz de estacionamiento
         [-70,-50,-30,-10,10,30,50,70].forEach(x=>{
             const pole=new THREE.Mesh(new THREE.CylinderGeometry(0.2,0.25,12,8),new THREE.MeshLambertMaterial({color:0x555555}));
             pole.position.set(x,6,-20); scene.add(pole);
@@ -252,7 +234,6 @@ function buildSceneLevel(level){
             lamp.position.set(x,12.2,-20); scene.add(lamp);
         });
 
-        // Conos de tránsito
         const coneMat=new THREE.MeshLambertMaterial({color:0xFF6600});
         [-35,35].forEach(x=>{
             const cone=new THREE.Mesh(new THREE.ConeGeometry(0.6,1.5,8),coneMat);
@@ -296,7 +277,7 @@ class Beto {
         box(0.11,0.11,0.06,blk,-0.14,1.65,0.26);
         box(0.11,0.11,0.06,blk,0.14,1.65,0.26);
         box(0.58,0.14,0.55,ye,0,1.9,0);
-        g.scale.set(1.0,1.0,1.0); // Beto más grande
+        g.scale.set(1.0,1.0,1.0);
         this.mesh=g;
         scene.add(g);
     }
@@ -358,22 +339,17 @@ class Car {
             mesh.position.set(x,y,z); g.add(mesh);
         };
 
-        // Chasis principal
         box(2.6,1.0,5.5,cMat,0,0.65,0);
-        // Techo/cabina
         box(2.2,1.1,3.0,cMat,0,1.7,0.2);
 
-        // Parabrisas frontal
         const frontGlass=new THREE.Mesh(new THREE.PlaneGeometry(2.0,0.8),glassMat);
         frontGlass.position.set(0,1.7,-1.35); frontGlass.rotation.x=-0.1;
         g.add(frontGlass);
 
-        // Parabrisas trasero
         const rearGlass=new THREE.Mesh(new THREE.PlaneGeometry(2.0,0.8),glassMat);
         rearGlass.position.set(0,1.7,1.75); rearGlass.rotation.x=0.1;
         g.add(rearGlass);
 
-        // Ventanas laterales
         [-1.12,1.12].forEach(x=>{
             const sideGlass=new THREE.Mesh(new THREE.PlaneGeometry(2.8,0.7),glassMat);
             sideGlass.position.set(x,1.7,0.2);
@@ -381,26 +357,21 @@ class Car {
             g.add(sideGlass);
         });
 
-        // Líneas de puertas
         [-1.32,1.32].forEach(x=>{
             box(0.06,0.85,2.2,chromeMat,x,0.8,0.2);
         });
-        // Manijas
         [-1.34,1.34].forEach(x=>{
             box(0.1,0.12,0.35,chromeMat,x,0.9,0.8);
         });
 
-        // Ruedas
         const wG=new THREE.CylinderGeometry(0.48,0.48,0.28,12);
         [[-1.2,0.6,-2.0],[1.2,0.6,-2.0],[-1.2,0.6,2.0],[1.2,0.6,2.0]].forEach(p=>{
             const w=new THREE.Mesh(wG,darkMat); w.rotation.z=Math.PI/2; w.position.set(...p); g.add(w);
         });
 
-        // Luces
         [-0.75,0.75].forEach(x=>box(0.4,0.3,0.1,lightMat,x,0.7,-2.8));
         [-0.75,0.75].forEach(x=>box(0.35,0.25,0.1,blkMat,x,0.7,2.8));
 
-        // Indicador amarillo
         const iMat=new THREE.MeshLambertMaterial({color:0xFFEE00});
         this.ind=new THREE.Mesh(new THREE.BoxGeometry(0.6,0.6,0.6),iMat);
         this.ind.position.y=4.0; g.add(this.ind);
@@ -422,7 +393,6 @@ class Car {
         const count=1+Math.floor(Math.random()*2);
         for(let i=0;i<count;i++){
             const p=new Passenger();
-            // Salen por el lado derecho del auto (pasajero)
             const side=Math.random()>0.5?1.5:-1.5;
             p.mesh.position.set(this.mesh.position.x+side,0,this.mesh.position.z+1);
             p.car=this;
@@ -434,7 +404,6 @@ class Car {
         if(!this.visible) return;
         if(this.state==='entering'){
             const targetZ=WAIT_LINE_Z;
-            // Encontrar posición libre en la fila
             let targetX=0;
             const occupiedXs=G.cars
                 .filter(c=>c!==this && c.visible && (c.state==='entering'||c.state==='waiting'))
@@ -469,7 +438,7 @@ class Car {
             }
             if(Date.now()-this.born>35000 && Math.random()<0.002){
                 this.leave();
-                loseLife('auto se fue sin pagar');
+                // loseLife desactivado
             }
         }
         if(this.state==='parking' && this.parkPos){
@@ -481,7 +450,6 @@ class Car {
                 this.mesh.rotation.y=Math.atan2(dir.x,dir.z);
             }else{
                 this.mesh.position.copy(tgt);
-                // Al estacionar, rotar para quedar paralelo a las líneas (norte-sur)
                 this.mesh.rotation.y=0;
                 this.state='parked';
                 this.spawnPassengers();
@@ -490,7 +458,6 @@ class Car {
             }
         }
         if(this.state==='leaving'){
-            // Salir hacia abajo (z positivo)
             this.mesh.position.z+=dt*18;
             if(this.mesh.position.z>80) this.visible=false;
         }
@@ -580,16 +547,16 @@ class ParkingSpot {
     }
     _build(){
         const g=new THREE.Group();
-        // Rectángulo amarillo alineado con las líneas (norte-sur)
+        // Rectángulo amarillo alineado con el slot (ancho entre líneas, largo del slot)
         const m=new THREE.Mesh(
-            new THREE.PlaneGeometry(SLOT_WIDTH-1,SLOT_LENGTH-1),
+            new THREE.PlaneGeometry(SLOT_WIDTH-1.2,SLOT_LENGTH-1.2),
             new THREE.MeshLambertMaterial({color:0xFFEE00,transparent:true,opacity:0.30})
         );
         m.rotation.x=-Math.PI/2; m.position.y=0.05;
         g.add(m);
         // Borde naranja
         const edgeMat=new THREE.MeshLambertMaterial({color:0xFFAA00,transparent:true,opacity:0.5});
-        const ew=SLOT_WIDTH-1, el=SLOT_LENGTH-1;
+        const ew=SLOT_WIDTH-1.2, el=SLOT_LENGTH-1.2;
         [[0,0,el/2,ew,0.15],[0,0,-el/2,ew,0.15],[ew/2,0,0,0.15,el],[-ew/2,0,0,0.15,el]].forEach(([ex,ey,ez,ewd,eld])=>{
             const e=new THREE.Mesh(new THREE.PlaneGeometry(ewd,eld),edgeMat);
             e.rotation.x=-Math.PI/2; e.position.set(ex,ey+0.06,ez); g.add(e);
@@ -690,7 +657,7 @@ class Dog {
                 toast('¡Perro meó el auto! 🐕💦','#FF5252');
                 if(this.targetCar) this.targetCar.leave();
                 this.state='leaving';
-                loseLife('perro meó el auto');
+                // loseLife desactivado
             }
             if(G.beto){
                 const dist=this.mesh.position.distanceTo(G.beto.mesh.position);
@@ -757,11 +724,8 @@ function toast(txt,color='#FFD700'){
 }
 
 function loseLife(reason){
-    G.lives--;
-    console.log('[BETO] Pierde vida:',reason,'vidas:',G.lives);
-    if(G.lives<=0){
-        gameOver('¡Sin vidas! 💔');
-    }
+    // Vidas desactivadas por ahora
+    console.log('[BETO] Evento (sin penalidad):',reason);
 }
 
 function checkLevelComplete(){
@@ -792,9 +756,7 @@ function startGame(level){
     if(G.beto) scene.remove(G.beto.mesh);
     clearInterval(G.spawnT); clearInterval(G.dogT);
 
-    // Limpiar escenario anterior
     clearSceneStatic();
-    // Construir nuevo escenario
     buildSceneLevel(level);
 
     G.cars=[]; G.dogs=[]; G.spots=[]; G.passengers=[];
@@ -859,9 +821,10 @@ canvas.addEventListener('click', e=>{
     }
     if(slotX!==null && Math.abs(pt.z)<SLOT_LENGTH/2){
         // Ya hay un spot aquí?
-        const existing=G.spots.find(s=>Math.abs(s.x-slotX)<1 && Math.abs(s.z-pt.z)<2);
+        const existing=G.spots.find(s=>Math.abs(s.x-slotX)<1);
         if(!existing){
-            G.spots.push(new ParkingSpot(slotX,pt.z));
+            // FORZAR z=0 para que el rectángulo quede siempre centrado
+            G.spots.push(new ParkingSpot(slotX,0));
             toast('Activando lugar...','#FFEE00');
         }
     }
@@ -920,6 +883,9 @@ let lastT = performance.now();
             }
             return true;
         });
+
+        // Game over solo por plata negativa (no por vidas)
+        if(G.money<=0) gameOver('¡Sin plata! 💸');
     }
 
     const $=id=>document.getElementById(id);
