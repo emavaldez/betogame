@@ -4,7 +4,6 @@ import * as THREE from 'three';
 // ── Cámara ───────────────────────────────────────────────────────
 const CAM_POS  = new THREE.Vector3(0, 30, 40);
 const CAM_LOOK = new THREE.Vector3(0, 0, 0);
-
 const MAP = 40;
 
 // ═══════════════════════════════════════════════════════
@@ -62,7 +61,6 @@ function updateProgress(spr, prog){
 //  ESCENARIO ESTÁTICO
 // ═══════════════════════════════════════════════════════
 (function buildScene(){
-    // Suelo verde
     const ground=new THREE.Mesh(
         new THREE.PlaneGeometry(200,200),
         new THREE.MeshLambertMaterial({color:0x55AA44})
@@ -71,7 +69,6 @@ function updateProgress(spr, prog){
     scene.add(ground);
     window._ground=ground;
 
-    // Zona asfalto
     const asphalt=new THREE.Mesh(
         new THREE.PlaneGeometry(100,50),
         new THREE.MeshLambertMaterial({color:0x444444})
@@ -80,7 +77,6 @@ function updateProgress(spr, prog){
     asphalt.position.y=0.01;
     scene.add(asphalt);
 
-    // Líneas blancas (slots)
     const wMat=new THREE.MeshLambertMaterial({color:0xFFFFFF});
     for(let x=-44;x<=44;x+=8){
         const l=new THREE.Mesh(new THREE.PlaneGeometry(0.5,18),wMat);
@@ -98,23 +94,18 @@ function updateProgress(spr, prog){
         const h=9+Math.random()*7;
         const cx=-36+i*(hw+1);
         const col=colors[i%colors.length];
-        // Pared
         const wall=new THREE.Mesh(new THREE.BoxGeometry(hw,h,hd),new THREE.MeshLambertMaterial({color:col}));
         wall.position.set(cx,h/2,-42); scene.add(wall);
-        // Techo
         const roof=new THREE.Mesh(new THREE.ConeGeometry(hw*0.75,3.5,4),new THREE.MeshLambertMaterial({color:0x8B4513}));
         roof.position.set(cx,h+1.75,-42); roof.rotation.y=Math.PI/4; scene.add(roof);
-        // Ventanas
         [-2,2].forEach(vx=>{
             const w=new THREE.Mesh(new THREE.BoxGeometry(2,2.5,0.3),new THREE.MeshLambertMaterial({color:0x88CCFF}));
             w.position.set(cx+vx,h*0.6,-38.5); scene.add(w);
         });
-        // Puerta
         const door=new THREE.Mesh(new THREE.BoxGeometry(2.2,4,0.3),new THREE.MeshLambertMaterial({color:0x5C3317}));
         door.position.set(cx,2,-38.5); scene.add(door);
     }
 
-    // Faroles
     const pMat=new THREE.MeshLambertMaterial({color:0x999999});
     const lMat=new THREE.MeshLambertMaterial({color:0xFFFF88});
     [-38,-20,0,20,38].forEach(x=>{
@@ -124,7 +115,6 @@ function updateProgress(spr, prog){
         lamp.position.set(x,9.4,16); scene.add(lamp);
     });
 
-    // Árboles
     const tMat=new THREE.MeshLambertMaterial({color:0x795548});
     const gMat=new THREE.MeshLambertMaterial({color:0x33691E});
     [-48,-38,38,48].forEach(x=>{
@@ -141,7 +131,7 @@ function updateProgress(spr, prog){
 
 class Beto {
     constructor(){
-        this.speed=0.15;
+        this.speed=0.12;
         this.target=null;
         this.wc=0;
         this._build();
@@ -157,17 +147,18 @@ class Beto {
             const mesh=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),m);
             mesh.position.set(x,y,z); g.add(mesh); return mesh;
         };
-        this.lL=box(0.45,1.0,0.45,lb,-0.28,0,0);
-        this.lR=box(0.45,1.0,0.45,lb,0.28,0,0);
-        box(1.2,1.2,0.65,bl,0,1.3,0);
-        box(1.25,0.4,0.70,ye,0,1.3,0);
-        this.aL=box(0.4,1.0,0.4,bl,-0.82,1.3,0);
-        this.aR=box(0.4,1.0,0.4,bl,0.82,1.3,0);
-        box(0.5,0.35,0.5,sk,0,2.1,0);
-        box(0.85,0.9,0.80,sk,0,2.72,0);
-        box(0.17,0.17,0.1,blk,-0.22,2.78,0.41);
-        box(0.17,0.17,0.1,blk,0.22,2.78,0.41);
-        box(0.9,0.22,0.85,ye,0,3.25,0);
+        this.lL=box(0.28,0.6,0.28,lb,-0.18,0,0);
+        this.lR=box(0.28,0.6,0.28,lb,0.18,0,0);
+        box(0.75,0.75,0.40,bl,0,0.8,0);
+        box(0.78,0.24,0.43,ye,0,0.8,0);
+        this.aL=box(0.25,0.6,0.25,bl,-0.52,0.8,0);
+        this.aR=box(0.25,0.6,0.25,bl,0.52,0.8,0);
+        box(0.32,0.22,0.32,sk,0,1.3,0);
+        box(0.55,0.55,0.50,sk,0,1.6,0);
+        box(0.11,0.11,0.06,blk,-0.14,1.65,0.26);
+        box(0.11,0.11,0.06,blk,0.14,1.65,0.26);
+        box(0.58,0.14,0.55,ye,0,1.9,0);
+        g.scale.set(0.65,0.65,0.65);
         this.mesh=g;
         scene.add(g);
     }
@@ -179,7 +170,7 @@ class Beto {
             (keys.s||keys.arrowdown?1:0)-(keys.w||keys.arrowup?1:0)
         );
         if(v.length()>0){
-            v.normalize().multiplyScalar(4); // ← movimiento más corto
+            v.normalize().multiplyScalar(3);
             const p=this.mesh.position.clone().add(v);
             p.x=Math.max(-MAP,Math.min(MAP,p.x));
             p.z=Math.max(-MAP,Math.min(MAP,p.z));
@@ -208,7 +199,7 @@ class Beto {
 class Car {
     constructor(){
         this.visible=true;
-        this.state='waiting';
+        this.state='entering'; // entering, waiting, parking, parked, leaving
         this.born=Date.now();
         this.parkPos=null;
         this.collected=false;
@@ -226,17 +217,18 @@ class Car {
             const mesh=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),m);
             mesh.position.set(x,y,z); g.add(mesh);
         };
-        box(2.6,0.8,5.0,cMat,0,0.48,0);
-        box(2.2,1.0,2.8,cMat,0,1.38,0.2);
-        box(2.1,0.8,0.12,gMat,0,1.38,-1.2);
+        box(2.6,1.0,5.5,cMat,0,0.65,0);
+        box(2.2,1.1,3.0,cMat,0,1.7,0.2);
+        box(2.1,0.85,0.12,gMat,0,1.7,-1.3);
         const wG=new THREE.CylinderGeometry(0.48,0.48,0.28,12);
-        [[-1.2,0.48,-1.8],[1.2,0.48,-1.8],[-1.2,0.48,1.8],[1.2,0.48,1.8]].forEach(p=>{
+        [[-1.2,0.6,-2.0],[1.2,0.6,-2.0],[-1.2,0.6,2.0],[1.2,0.6,2.0]].forEach(p=>{
             const w=new THREE.Mesh(wG,dMat); w.rotation.z=Math.PI/2; w.position.set(...p); g.add(w);
         });
-        [-0.75,0.75].forEach(x=>box(0.4,0.28,0.1,lMat,x,0.55,-2.52));
+        [-0.75,0.75].forEach(x=>box(0.4,0.3,0.1,lMat,x,0.7,-2.8));
         const iMat=new THREE.MeshLambertMaterial({color:0xFFEE00});
         this.ind=new THREE.Mesh(new THREE.BoxGeometry(0.6,0.6,0.6),iMat);
-        this.ind.position.y=3.6; g.add(this.ind);
+        this.ind.position.y=4.0; g.add(this.ind);
+        g.scale.set(1.8,1.8,1.8);
         this.mesh=g;
         scene.add(g);
     }
@@ -247,14 +239,13 @@ class Car {
     }
     leave(){
         this.state='leaving';
-        // pasajeros se van si no cobraron
         this.passengers.forEach(p=>p.leave());
     }
     spawnPassengers(){
-        const count=1+Math.floor(Math.random()*2); // 1-2 pasajeros
+        const count=1+Math.floor(Math.random()*2);
         for(let i=0;i<count;i++){
             const p=new Passenger();
-            p.mesh.position.set(this.mesh.position.x+(i-0.5)*1.5,0,this.mesh.position.z+3.5);
+            p.mesh.position.set(this.mesh.position.x+(i-0.5)*1.5,0,this.mesh.position.z+4.5);
             p.car=this;
             this.passengers.push(p);
             G.passengers.push(p);
@@ -262,22 +253,32 @@ class Car {
     }
     update(dt){
         if(!this.visible) return;
+        if(this.state==='entering'){
+            // Mover hacia la fila de espera (z = -18)
+            const targetZ=-18;
+            if(this.mesh.position.z<targetZ){
+                this.mesh.position.z+=dt*12;
+                this.mesh.rotation.y=0; // mirando hacia abajo
+            }else{
+                this.mesh.position.z=targetZ;
+                this.state='waiting';
+            }
+        }
         if(this.state==='waiting'){
             this.ind.rotation.y+=dt*3;
-            this.ind.position.y=3.6+Math.sin(Date.now()*0.004)*0.28;
+            this.ind.position.y=4.0+Math.sin(Date.now()*0.004)*0.28;
             this.ind.visible=Math.floor(Date.now()/400)%2===0;
-            // Buscar un slot activo cerca
-            const spot=G.spots.find(s=>s.state==='active'&&!s.assigned);
-            if(spot){
-                spot.assigned=true;
-                this.park(spot.x,spot.z);
+            // Si tiene un slot asignado, empezar a estacionar
+            if(this.parkPos){
+                this.state='parking';
+                this.ind.visible=false;
             }
-            if(Date.now()-this.born>25000 && Math.random()<0.003) this.leave();
+            if(Date.now()-this.born>30000 && Math.random()<0.002) this.leave();
         }
         if(this.state==='parking' && this.parkPos){
             const tgt=new THREE.Vector3(this.parkPos.x,0,this.parkPos.z);
             const dir=new THREE.Vector3().subVectors(tgt,this.mesh.position);
-            if(dir.length()>0.35){
+            if(dir.length()>0.5){
                 dir.normalize();
                 this.mesh.position.addScaledVector(dir,0.18);
                 this.mesh.rotation.y=Math.atan2(dir.x,dir.z);
@@ -288,7 +289,7 @@ class Car {
             }
         }
         if(this.state==='leaving'){
-            this.mesh.position.z+=dt*15;
+            this.mesh.position.z+=dt*18;
             if(this.mesh.position.z>80) this.visible=false;
         }
     }
@@ -297,7 +298,7 @@ class Car {
 class Passenger {
     constructor(){
         this.visible=true;
-        this.state='waiting'; // waiting, paying, paid, leaving
+        this.state='waiting';
         this.payProgress=0;
         this._build();
     }
@@ -306,17 +307,17 @@ class Passenger {
         const skin=new THREE.MeshLambertMaterial({color:0xFFCCAA});
         const shirt=new THREE.MeshLambertMaterial({color:new THREE.Color().setHSL(Math.random(),0.7,0.5)});
         const pants=new THREE.MeshLambertMaterial({color:0x333344});
-        const body=new THREE.Mesh(new THREE.BoxGeometry(0.6,0.7,0.35),shirt);
-        body.position.y=1.0; g.add(body);
-        const head=new THREE.Mesh(new THREE.BoxGeometry(0.45,0.45,0.45),skin);
-        head.position.y=1.6; g.add(head);
-        const legL=new THREE.Mesh(new THREE.BoxGeometry(0.2,0.6,0.2),pants);
-        legL.position.set(-0.15,0.3,0); g.add(legL);
-        const legR=new THREE.Mesh(new THREE.BoxGeometry(0.2,0.6,0.2),pants);
-        legR.position.set(0.15,0.3,0); g.add(legR);
+        const body=new THREE.Mesh(new THREE.BoxGeometry(0.7,0.8,0.4),shirt);
+        body.position.y=1.1; g.add(body);
+        const head=new THREE.Mesh(new THREE.BoxGeometry(0.5,0.5,0.5),skin);
+        head.position.y=1.8; g.add(head);
+        const legL=new THREE.Mesh(new THREE.BoxGeometry(0.22,0.7,0.22),pants);
+        legL.position.set(-0.17,0.35,0); g.add(legL);
+        const legR=new THREE.Mesh(new THREE.BoxGeometry(0.22,0.7,0.22),pants);
+        legR.position.set(0.17,0.35,0); g.add(legR);
+        g.scale.set(1.5,1.5,1.5);
         this.mesh=g;
         scene.add(g);
-        // Círculo de progreso
         this.progSprite=makeProgressSprite('#FFD700');
         this.progSprite.position.set(0,3.5,0);
         this.mesh.add(this.progSprite);
@@ -353,7 +354,6 @@ class Passenger {
                 G.money+=gain;
                 toast(`+$${gain} 💰`,'#FFD700');
                 if(this.car) this.car.collected=true;
-                // Se van
                 setTimeout(()=>{
                     this.state='leaving';
                     if(this.car) this.car.leave();
@@ -370,16 +370,15 @@ class Passenger {
 class ParkingSpot {
     constructor(x,z){
         this.x=x; this.z=z;
-        this.state='activating'; // activating, active, used
+        this.state='activating';
         this.timer=0;
         this.assigned=false;
         this._build();
     }
     _build(){
         const g=new THREE.Group();
-        // Marcador amarillo en el piso
         const m=new THREE.Mesh(
-            new THREE.PlaneGeometry(5,12),
+            new THREE.PlaneGeometry(6,14),
             new THREE.MeshLambertMaterial({color:0xFFEE00,transparent:true,opacity:0.4})
         );
         m.rotation.x=-Math.PI/2; m.position.y=0.05;
@@ -387,7 +386,6 @@ class ParkingSpot {
         this.mesh=g;
         scene.add(g);
         g.position.set(this.x,0,this.z);
-        // Círculo de progreso
         this.progSprite=makeProgressSprite('#4CAF50');
         this.progSprite.position.set(0,2,0);
         g.add(this.progSprite);
@@ -400,9 +398,12 @@ class ParkingSpot {
                 this.state='active';
                 this.progSprite.visible=false;
                 toast('¡Lugar listo! 🅿️','#4CAF50');
+                // Asignar al primer auto en espera
+                const car=G.cars.find(c=>c.state==='waiting'&&!c.parkPos);
+                if(car) car.park(this.x,this.z);
             }
         }
-        if(this.state==='used' || (this.assigned && this.state==='active')){
+        if(this.state==='active' && this.assigned){
             this.progSprite.visible=false;
         }
     }
@@ -441,15 +442,13 @@ class Dog {
         });
         this.cola=box(0.15,0.9,0.15,fur,0,1.5,-1.3);
         this.cola.rotation.x=-0.8;
-        g.scale.set(1.3,1.3,1.3);
+        g.scale.set(1.6,1.6,1.6);
         this.mesh=g;
-        // Spawn al lado del auto objetivo
         if(this.targetCar){
             const tp=this.targetCar.mesh.position;
-            this.mesh.position.set(tp.x+5,0,tp.z+5);
+            this.mesh.position.set(tp.x+6,0,tp.z+6);
         }
         scene.add(g);
-        // Progreso
         this.progSprite=makeProgressSprite('#FF5252');
         this.progSprite.position.set(0,3.5,0);
         this.mesh.add(this.progSprite);
@@ -472,10 +471,8 @@ class Dog {
         }
         if(this.state==='peeing'){
             this.peeTimer+=dt;
-            // Mover cola
             this.cola.rotation.z=Math.sin(this.timer*8)*0.6;
             if(this.peeTimer>6){
-                // Mearon el auto, se va sin pago
                 toast('¡Perro meó el auto! 🐕💦','#FF5252');
                 if(this.targetCar) this.targetCar.leave();
                 this.state='leaving';
@@ -510,7 +507,6 @@ class Dog {
             this.mesh.position.z+=dt*12;
             if(this.mesh.position.z>80) this.visible=false;
         }
-        // Anim patas
         const sw=Math.sin(this.timer*10)*0.5;
         this.patas[0].rotation.x=sw; this.patas[1].rotation.x=-sw;
         this.patas[2].rotation.x=-sw; this.patas[3].rotation.x=sw;
@@ -546,7 +542,6 @@ function toast(txt,color='#FFD700'){
 
 function startGame(level){
     console.log('[BETO] startGame level',level);
-    // Limpiar
     G.cars.forEach(c=>scene.remove(c.mesh));
     G.dogs.forEach(d=>scene.remove(d.mesh));
     G.spots.forEach(s=>scene.remove(s.mesh));
@@ -565,9 +560,8 @@ function startGame(level){
     const spawnCar=()=>{
         if(G.cars.length>=G.maxCars) return;
         const car=new Car();
-        // Aparecen en la calle (entrada sur)
-        car.mesh.position.set((Math.random()-0.5)*70,0.15,28+Math.random()*8);
-        car.mesh.rotation.y=Math.PI; // miran hacia arriba
+        // Aparecen por ARRIBA (z negativo)
+        car.mesh.position.set((Math.random()-0.5)*30,0.15,-60);
         G.cars.push(car);
     };
 
@@ -576,14 +570,12 @@ function startGame(level){
         const parked=G.cars.filter(c=>c.state==='parked');
         if(parked.length===0) return;
         const target=parked[Math.floor(Math.random()*parked.length)];
-        // No más de 1 perro por auto
         if(G.dogs.some(d=>d.targetCar===target)) return;
         const dog=new Dog(target);
         G.dogs.push(dog);
     };
 
-    // Spawn inicial
-    for(let i=0;i<3;i++) setTimeout(spawnCar,i*300);
+    for(let i=0;i<3;i++) setTimeout(spawnCar,i*400);
 
     G.spawnT=setInterval(()=>{ if(G.state==='PLAYING') spawnCar(); }, cfg.spawn);
     G.dogT=setInterval(()=>{ if(G.state==='PLAYING') spawnDog(); }, cfg.dogs);
@@ -611,18 +603,15 @@ canvas.addEventListener('click', e=>{
     if(!hits.length) return;
     const pt=hits[0].point;
 
-    // Beto camina al punto
     G.beto.moveTo(pt.x,pt.z);
 
     // Verificar si es un slot de estacionamiento
-    // Slots: centros en x = -40,-32,-24,-16,-8,0,8,16,24,32,40 ; z entre -9 y 9
     const slotCenters=[-40,-32,-24,-16,-8,0,8,16,24,32,40];
     let slotX=null;
     for(const cx of slotCenters){
         if(Math.abs(pt.x-cx)<3.5){ slotX=cx; break; }
     }
     if(slotX!==null && Math.abs(pt.z)<9){
-        // Ya existe un spot aquí?
         const exists=G.spots.some(s=>Math.abs(s.x-slotX)<1 && Math.abs(s.z-pt.z)<2);
         if(!exists){
             G.spots.push(new ParkingSpot(slotX,pt.z));
@@ -664,13 +653,11 @@ let lastT = performance.now();
         G.spots.forEach(s=>s.update(dt));
         G.passengers.forEach(p=>p.update(dt));
 
-        // Limpiar invisibles
         G.cars=G.cars.filter(c=>{ if(!c.visible){scene.remove(c.mesh);return false;} return true; });
         G.dogs=G.dogs.filter(d=>{ if(!d.visible){scene.remove(d.mesh);return false;} return true; });
         G.passengers=G.passengers.filter(p=>{ if(!p.visible){scene.remove(p.mesh);return false;} return true; });
         G.spots=G.spots.filter(s=>{
             if(s.state==='active' && s.assigned){
-                // Cuando el auto se va, liberar spot
                 const carStillThere=G.cars.some(c=>c.parkPos && Math.abs(c.parkPos.x-s.x)<1 && c.visible);
                 if(!carStillThere){ scene.remove(s.mesh); return false; }
             }
