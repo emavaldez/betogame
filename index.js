@@ -70,7 +70,6 @@ function clearSceneStatic(){
 }
 
 function buildSceneLevel(level){
-    // Suelo base
     const ground=new THREE.Mesh(
         new THREE.PlaneGeometry(300,300),
         new THREE.MeshLambertMaterial({color:0x55AA44})
@@ -277,7 +276,8 @@ class Beto {
         box(0.11,0.11,0.06,blk,-0.14,1.65,0.26);
         box(0.11,0.11,0.06,blk,0.14,1.65,0.26);
         box(0.58,0.14,0.55,ye,0,1.9,0);
-        g.scale.set(1.0,1.0,1.0);
+        // Beto más grande (tamaño de perro anterior = 1.6)
+        g.scale.set(1.6,1.6,1.6);
         this.mesh=g;
         scene.add(g);
     }
@@ -404,17 +404,31 @@ class Car {
         if(!this.visible) return;
         if(this.state==='entering'){
             const targetZ=WAIT_LINE_Z;
+            // Encontrar posición libre en la fila sin tocarse
+            const CAR_SPACING = 6.5; // Separación mínima entre autos
             let targetX=0;
             const occupiedXs=G.cars
                 .filter(c=>c!==this && c.visible && (c.state==='entering'||c.state==='waiting'))
                 .map(c=>c.mesh.position.x);
             let found=false;
-            for(let tryX=-30;tryX<=30;tryX+=5){
-                if(!occupiedXs.some(ox=>Math.abs(ox-tryX)<4)){
+            // Slots predefinidos para la fila
+            const queueSlots=[];
+            const range=Math.floor(MAP/8)*4;
+            for(let sx=-range;sx<=range;sx+=CAR_SPACING) queueSlots.push(sx);
+            for(const tryX of queueSlots){
+                if(!occupiedXs.some(ox=>Math.abs(ox-tryX)<CAR_SPACING-0.5)){
                     targetX=tryX; found=true; break;
                 }
             }
-            if(!found) targetX=(Math.random()-0.5)*60;
+            if(!found){
+                // Fallback: buscar cualquier hueco
+                for(let tryX=-range;tryX<=range;tryX+=2){
+                    if(!occupiedXs.some(ox=>Math.abs(ox-tryX)<CAR_SPACING-0.5)){
+                        targetX=tryX; found=true; break;
+                    }
+                }
+            }
+            if(!found) targetX=(Math.random()-0.5)*range*2;
 
             const dx=targetX-this.mesh.position.x;
             const dz=targetZ-this.mesh.position.z;
@@ -436,9 +450,8 @@ class Car {
                 this.state='parking';
                 this.ind.visible=false;
             }
-            if(Date.now()-this.born>35000 && Math.random()<0.002){
+            if(Date.now()-this.born>45000 && Math.random()<0.001){
                 this.leave();
-                // loseLife desactivado
             }
         }
         if(this.state==='parking' && this.parkPos){
@@ -547,14 +560,12 @@ class ParkingSpot {
     }
     _build(){
         const g=new THREE.Group();
-        // Rectángulo amarillo alineado con el slot (ancho entre líneas, largo del slot)
         const m=new THREE.Mesh(
             new THREE.PlaneGeometry(SLOT_WIDTH-1.2,SLOT_LENGTH-1.2),
             new THREE.MeshLambertMaterial({color:0xFFEE00,transparent:true,opacity:0.30})
         );
         m.rotation.x=-Math.PI/2; m.position.y=0.05;
         g.add(m);
-        // Borde naranja
         const edgeMat=new THREE.MeshLambertMaterial({color:0xFFAA00,transparent:true,opacity:0.5});
         const ew=SLOT_WIDTH-1.2, el=SLOT_LENGTH-1.2;
         [[0,0,el/2,ew,0.15],[0,0,-el/2,ew,0.15],[ew/2,0,0,0.15,el],[-ew/2,0,0,0.15,el]].forEach(([ex,ey,ez,ewd,eld])=>{
@@ -623,7 +634,8 @@ class Dog {
         });
         this.cola=box(0.15,0.9,0.15,fur,0,1.5,-1.3);
         this.cola.rotation.x=-0.8;
-        g.scale.set(1.6,1.6,1.6);
+        // Perro más chico (tamaño de Beto anterior = 1.0)
+        g.scale.set(1.0,1.0,1.0);
         this.mesh=g;
         if(this.targetCar){
             const tp=this.targetCar.mesh.position;
@@ -657,7 +669,6 @@ class Dog {
                 toast('¡Perro meó el auto! 🐕💦','#FF5252');
                 if(this.targetCar) this.targetCar.leave();
                 this.state='leaving';
-                // loseLife desactivado
             }
             if(G.beto){
                 const dist=this.mesh.position.distanceTo(G.beto.mesh.position);
@@ -706,9 +717,9 @@ const G={
 };
 
 const LEVELS={
-    1:{spawn:2500,dogs:6000,label:'La Calle',maxDogs:3,target:20},
-    2:{spawn:1800,dogs:4500,label:'La Plaza',maxDogs:5,target:40},
-    3:{spawn:1200,dogs:3000,label:'4 Manzanas',maxDogs:8,target:60},
+    1:{spawn:4500,dogs:8000,label:'La Calle',maxDogs:3,target:20},
+    2:{spawn:3500,dogs:6500,label:'La Plaza',maxDogs:5,target:40},
+    3:{spawn:2800,dogs:5000,label:'4 Manzanas',maxDogs:8,target:60},
 };
 
 function toast(txt,color='#FFD700'){
@@ -724,7 +735,6 @@ function toast(txt,color='#FFD700'){
 }
 
 function loseLife(reason){
-    // Vidas desactivadas por ahora
     console.log('[BETO] Evento (sin penalidad):',reason);
 }
 
@@ -784,7 +794,7 @@ function startGame(level){
         G.dogs.push(dog);
     };
 
-    for(let i=0;i<3;i++) setTimeout(spawnCar,i*500);
+    for(let i=0;i<2;i++) setTimeout(spawnCar,i*800);
 
     G.spawnT=setInterval(()=>{ if(G.state==='PLAYING') spawnCar(); }, cfg.spawn);
     G.dogT=setInterval(()=>{ if(G.state==='PLAYING') spawnDog(); }, cfg.dogs);
@@ -812,6 +822,7 @@ canvas.addEventListener('click', e=>{
     if(!hits.length) return;
     const pt=hits[0].point;
 
+    // Beto SIEMPRE camina al punto del click
     G.beto.moveTo(pt.x,pt.z);
 
     // Verificar si es un slot de estacionamiento
@@ -820,10 +831,8 @@ canvas.addEventListener('click', e=>{
         if(Math.abs(pt.x-cx)<SLOT_WIDTH/2-0.5){ slotX=cx; break; }
     }
     if(slotX!==null && Math.abs(pt.z)<SLOT_LENGTH/2){
-        // Ya hay un spot aquí?
         const existing=G.spots.find(s=>Math.abs(s.x-slotX)<1);
         if(!existing){
-            // FORZAR z=0 para que el rectángulo quede siempre centrado
             G.spots.push(new ParkingSpot(slotX,0));
             toast('Activando lugar...','#FFEE00');
         }
@@ -884,7 +893,6 @@ let lastT = performance.now();
             return true;
         });
 
-        // Game over solo por plata negativa (no por vidas)
         if(G.money<=0) gameOver('¡Sin plata! 💸');
     }
 
