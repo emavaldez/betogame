@@ -1,19 +1,15 @@
 // LA VIDA DE BETO
 import * as THREE from 'three';
 
-// ── Cámara ───────────────────────────────────────────────────────
 const CAM_POS  = new THREE.Vector3(0, 30, 40);
 const CAM_LOOK = new THREE.Vector3(0, 0, 0);
 const MAP = 40;
 
-// ═══════════════════════════════════════════════════════
-//  ESCENA GLOBAL
-// ═══════════════════════════════════════════════════════
-const canvas   = document.getElementById('game-canvas');
-const scene    = new THREE.Scene();
+const canvas = document.getElementById('game-canvas');
+const scene  = new THREE.Scene();
 scene.background = new THREE.Color(0x87CEEB);
 
-const camera   = new THREE.PerspectiveCamera(55, innerWidth / innerHeight, 0.1, 600);
+const camera = new THREE.PerspectiveCamera(55, innerWidth / innerHeight, 0.1, 600);
 camera.position.copy(CAM_POS);
 camera.lookAt(CAM_LOOK);
 
@@ -27,14 +23,13 @@ window.addEventListener('resize', () => {
     renderer.setSize(innerWidth, innerHeight);
 });
 
-// ── Luces ────────────────────────────────────────────────────────
 scene.add(new THREE.AmbientLight(0xffffff, 1.0));
 const sun = new THREE.DirectionalLight(0xffffff, 0.8);
 sun.position.set(30, 50, 30);
 scene.add(sun);
 
 // ═══════════════════════════════════════════════════════
-//  HELPERS: Círculo de progreso 3D
+//  HELPERS
 // ═══════════════════════════════════════════════════════
 function makeProgressSprite(color='#4CAF50'){
     const can=document.createElement('canvas');
@@ -44,7 +39,7 @@ function makeProgressSprite(color='#4CAF50'){
     const mat=new THREE.SpriteMaterial({map:tex, transparent:true, depthTest:false});
     const spr=new THREE.Sprite(mat);
     spr.scale.set(3.5,3.5,1);
-    spr.userData={can,ctx,tex,color,progress:0};
+    spr.userData={can,ctx,tex,color};
     return spr;
 }
 function updateProgress(spr, prog){
@@ -52,14 +47,18 @@ function updateProgress(spr, prog){
     ctx.clearRect(0,0,128,128);
     ctx.beginPath(); ctx.arc(64,64,58,0,Math.PI*2);
     ctx.strokeStyle='rgba(255,255,255,0.25)'; ctx.lineWidth=10; ctx.stroke();
-    ctx.beginPath(); ctx.arc(64,64,58,-Math.PI/2,-Math.PI/2+Math.PI*2*prog);
+    ctx.beginPath(); ctx.arc(64,64,58,-Math.PI/2,-Math.PI/2+Math.PI*2*Math.min(prog,1));
     ctx.strokeStyle=color; ctx.lineWidth=10; ctx.stroke();
     tex.needsUpdate=true;
 }
 
 // ═══════════════════════════════════════════════════════
-//  ESCENARIO ESTÁTICO
+//  ESCENARIO
 // ═══════════════════════════════════════════════════════
+const SLOT_WIDTH = 8;
+const SLOT_LENGTH = 18;
+const SLOT_CENTERS = [-40,-32,-24,-16,-8,0,8,16,24,32,40];
+
 (function buildScene(){
     const ground=new THREE.Mesh(
         new THREE.PlaneGeometry(200,200),
@@ -78,10 +77,12 @@ function updateProgress(spr, prog){
     scene.add(asphalt);
 
     const wMat=new THREE.MeshLambertMaterial({color:0xFFFFFF});
-    for(let x=-44;x<=44;x+=8){
+    // Líneas divisorias verticales
+    for(let x=-44;x<=44;x+=SLOT_WIDTH){
         const l=new THREE.Mesh(new THREE.PlaneGeometry(0.5,18),wMat);
         l.rotation.x=-Math.PI/2; l.position.set(x,0.03,0); scene.add(l);
     }
+    // Líneas horizontales
     [-9,9].forEach(z=>{
         const l=new THREE.Mesh(new THREE.PlaneGeometry(100,0.5),wMat);
         l.rotation.x=-Math.PI/2; l.position.set(0,0.03,z); scene.add(l);
@@ -210,24 +211,63 @@ class Car {
         const g=new THREE.Group();
         const col=new THREE.Color().setHSL(Math.random(),0.8,0.5);
         const cMat=new THREE.MeshLambertMaterial({color:col});
-        const dMat=new THREE.MeshLambertMaterial({color:0x222222});
-        const gMat=new THREE.MeshLambertMaterial({color:0x88CCFF,transparent:true,opacity:0.55});
-        const lMat=new THREE.MeshLambertMaterial({color:0xFFFFAA});
+        const darkMat=new THREE.MeshLambertMaterial({color:0x222222});
+        const glassMat=new THREE.MeshLambertMaterial({color:0x88CCFF,transparent:true,opacity:0.6});
+        const lightMat=new THREE.MeshLambertMaterial({color:0xFFFFAA});
+        const blkMat=new THREE.MeshLambertMaterial({color:0x111111});
+        const chromeMat=new THREE.MeshLambertMaterial({color:0xCCCCCC});
         const box=(w,h,d,m,x,y,z)=>{
             const mesh=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),m);
             mesh.position.set(x,y,z); g.add(mesh);
         };
+
+        // Chasis principal
         box(2.6,1.0,5.5,cMat,0,0.65,0);
+        // Techo/cabina
         box(2.2,1.1,3.0,cMat,0,1.7,0.2);
-        box(2.1,0.85,0.12,gMat,0,1.7,-1.3);
+
+        // Parabrisas frontal
+        const frontGlass=new THREE.Mesh(new THREE.PlaneGeometry(2.0,0.8),glassMat);
+        frontGlass.position.set(0,1.7,-1.35); frontGlass.rotation.x=-0.1;
+        g.add(frontGlass);
+
+        // Parabrisas trasero
+        const rearGlass=new THREE.Mesh(new THREE.PlaneGeometry(2.0,0.8),glassMat);
+        rearGlass.position.set(0,1.7,1.75); rearGlass.rotation.x=0.1;
+        g.add(rearGlass);
+
+        // Ventanas laterales
+        [-1.12,1.12].forEach(x=>{
+            const sideGlass=new THREE.Mesh(new THREE.PlaneGeometry(2.8,0.7),glassMat);
+            sideGlass.position.set(x,1.7,0.2);
+            sideGlass.rotation.y=x>0?Math.PI/2:-Math.PI/2;
+            g.add(sideGlass);
+        });
+
+        // Líneas de puertas
+        [-1.32,1.32].forEach(x=>{
+            box(0.06,0.85,2.2,chromeMat,x,0.8,0.2);
+        });
+        // Manijas
+        [-1.34,1.34].forEach(x=>{
+            box(0.1,0.12,0.35,chromeMat,x,0.9,0.8);
+        });
+
+        // Ruedas
         const wG=new THREE.CylinderGeometry(0.48,0.48,0.28,12);
         [[-1.2,0.6,-2.0],[1.2,0.6,-2.0],[-1.2,0.6,2.0],[1.2,0.6,2.0]].forEach(p=>{
-            const w=new THREE.Mesh(wG,dMat); w.rotation.z=Math.PI/2; w.position.set(...p); g.add(w);
+            const w=new THREE.Mesh(wG,darkMat); w.rotation.z=Math.PI/2; w.position.set(...p); g.add(w);
         });
-        [-0.75,0.75].forEach(x=>box(0.4,0.3,0.1,lMat,x,0.7,-2.8));
+
+        // Luces
+        [-0.75,0.75].forEach(x=>box(0.4,0.3,0.1,lightMat,x,0.7,-2.8));
+        [-0.75,0.75].forEach(x=>box(0.35,0.25,0.1,blkMat,x,0.7,2.8));
+
+        // Indicador amarillo
         const iMat=new THREE.MeshLambertMaterial({color:0xFFEE00});
         this.ind=new THREE.Mesh(new THREE.BoxGeometry(0.6,0.6,0.6),iMat);
         this.ind.position.y=4.0; g.add(this.ind);
+
         g.scale.set(1.8,1.8,1.8);
         this.mesh=g;
         scene.add(g);
@@ -254,13 +294,30 @@ class Car {
     update(dt){
         if(!this.visible) return;
         if(this.state==='entering'){
-            // Mover hacia la fila de espera (z = -18)
             const targetZ=-18;
-            if(this.mesh.position.z<targetZ){
-                this.mesh.position.z+=dt*12;
-                this.mesh.rotation.y=0; // mirando hacia abajo
+            // Encontrar posición libre en la fila
+            let targetX=0;
+            const occupiedXs=G.cars
+                .filter(c=>c!==this && c.visible && (c.state==='entering'||c.state==='waiting'))
+                .map(c=>c.mesh.position.x);
+            // Buscar un x libre en [-20,20]
+            let found=false;
+            for(let tryX=-20;tryX<=20;tryX+=5){
+                if(!occupiedXs.some(ox=>Math.abs(ox-tryX)<4)){
+                    targetX=tryX; found=true; break;
+                }
+            }
+            if(!found) targetX=(Math.random()-0.5)*40;
+
+            const dx=targetX-this.mesh.position.x;
+            const dz=targetZ-this.mesh.position.z;
+            const dist=Math.sqrt(dx*dx+dz*dz);
+            if(dist>0.5){
+                this.mesh.position.x+=(dx/dist)*dt*12;
+                this.mesh.position.z+=(dz/dist)*dt*12;
+                this.mesh.rotation.y=Math.atan2(dx,dz);
             }else{
-                this.mesh.position.z=targetZ;
+                this.mesh.position.set(targetX,targetZ,0.15);
                 this.state='waiting';
             }
         }
@@ -268,12 +325,14 @@ class Car {
             this.ind.rotation.y+=dt*3;
             this.ind.position.y=4.0+Math.sin(Date.now()*0.004)*0.28;
             this.ind.visible=Math.floor(Date.now()/400)%2===0;
-            // Si tiene un slot asignado, empezar a estacionar
             if(this.parkPos){
                 this.state='parking';
                 this.ind.visible=false;
             }
-            if(Date.now()-this.born>30000 && Math.random()<0.002) this.leave();
+            if(Date.now()-this.born>35000 && Math.random()<0.002){
+                this.leave();
+                loseLife('auto se fue sin pagar');
+            }
         }
         if(this.state==='parking' && this.parkPos){
             const tgt=new THREE.Vector3(this.parkPos.x,0,this.parkPos.z);
@@ -286,6 +345,8 @@ class Car {
                 this.mesh.position.copy(tgt);
                 this.state='parked';
                 this.spawnPassengers();
+                G.parkedCount++;
+                checkLevelComplete();
             }
         }
         if(this.state==='leaving'){
@@ -373,16 +434,23 @@ class ParkingSpot {
         this.state='activating';
         this.timer=0;
         this.assigned=false;
+        this.carId=null;
         this._build();
     }
     _build(){
         const g=new THREE.Group();
         const m=new THREE.Mesh(
             new THREE.PlaneGeometry(6,14),
-            new THREE.MeshLambertMaterial({color:0xFFEE00,transparent:true,opacity:0.4})
+            new THREE.MeshLambertMaterial({color:0xFFEE00,transparent:true,opacity:0.35})
         );
         m.rotation.x=-Math.PI/2; m.position.y=0.05;
         g.add(m);
+        // Borde
+        const edgeMat=new THREE.MeshLambertMaterial({color:0xFFAA00,transparent:true,opacity:0.6});
+        [[0,0,7,6,0.15],[0,0,-7,6,0.15],[3,0,0,0.15,14],[-3,0,0,0.15,14]].forEach(([ex,ey,ez,ew,ed])=>{
+            const e=new THREE.Mesh(new THREE.PlaneGeometry(ew,ed),edgeMat);
+            e.rotation.x=-Math.PI/2; e.position.set(ex,ey+0.06,ez); g.add(e);
+        });
         this.mesh=g;
         scene.add(g);
         g.position.set(this.x,0,this.z);
@@ -398,14 +466,17 @@ class ParkingSpot {
                 this.state='active';
                 this.progSprite.visible=false;
                 toast('¡Lugar listo! 🅿️','#4CAF50');
-                // Asignar al primer auto en espera
                 const car=G.cars.find(c=>c.state==='waiting'&&!c.parkPos);
-                if(car) car.park(this.x,this.z);
+                if(car){
+                    this.assigned=true;
+                    this.carId=car;
+                    car.park(this.x,this.z);
+                }
             }
         }
-        if(this.state==='active' && this.assigned){
-            this.progSprite.visible=false;
-        }
+    }
+    release(){
+        scene.remove(this.mesh);
     }
 }
 
@@ -476,6 +547,7 @@ class Dog {
                 toast('¡Perro meó el auto! 🐕💦','#FF5252');
                 if(this.targetCar) this.targetCar.leave();
                 this.state='leaving';
+                loseLife('perro meó el auto');
             }
             if(G.beto){
                 const dist=this.mesh.position.distanceTo(G.beto.mesh.position);
@@ -519,13 +591,14 @@ class Dog {
 const G={
     state:'START', level:1, money:100, lives:3, maxCars:12,
     cars:[], dogs:[], beto:null, spots:[], passengers:[],
-    spawnT:null, dogT:null, keys:{}
+    spawnT:null, dogT:null, keys:{},
+    parkedCount:0
 };
 
 const LEVELS={
-    1:{spawn:2500,dogs:6000,label:'La Calle',maxDogs:3},
-    2:{spawn:1800,dogs:4500,label:'La Plaza',maxDogs:5},
-    3:{spawn:1200,dogs:3000,label:'4 Manzanas',maxDogs:8},
+    1:{spawn:2500,dogs:6000,label:'La Calle',maxDogs:3,target:20},
+    2:{spawn:1800,dogs:4500,label:'La Plaza',maxDogs:5,target:40},
+    3:{spawn:1200,dogs:3000,label:'4 Manzanas',maxDogs:8,target:60},
 };
 
 function toast(txt,color='#FFD700'){
@@ -536,21 +609,48 @@ function toast(txt,color='#FFD700'){
         font-size:22px;font-weight:bold;pointer-events:none;z-index:300;
         transition:opacity .5s,top .5s;`;
     document.body.appendChild(el);
-    setTimeout(()=>{el.style.opacity='0';el.style.top='34%';},700);
-    setTimeout(()=>el.remove(),1300);
+    setTimeout(()=>{el.style.opacity='0';el.style.top='34%';},900);
+    setTimeout(()=>el.remove(),1500);
+}
+
+function loseLife(reason){
+    G.lives--;
+    console.log('[BETO] Pierde vida:',reason,'vidas:',G.lives);
+    if(G.lives<=0){
+        gameOver('¡Sin vidas! 💔');
+    }
+}
+
+function checkLevelComplete(){
+    const cfg=LEVELS[G.level];
+    if(G.parkedCount>=cfg.target){
+        G.state='LEVEL_COMPLETE';
+        clearInterval(G.spawnT); clearInterval(G.dogT);
+        if(G.level<3){
+            toast(`¡Nivel ${G.level} completado! 🎉`,'#4CAF50');
+            setTimeout(()=>{
+                startGame(G.level+1);
+            },2500);
+        }else{
+            toast('¡Ganaste el juego! 🏆','#FFD700');
+            setTimeout(()=>{
+                gameOver('¡Juego completado! 🏆');
+            },2000);
+        }
+    }
 }
 
 function startGame(level){
     console.log('[BETO] startGame level',level);
     G.cars.forEach(c=>scene.remove(c.mesh));
     G.dogs.forEach(d=>scene.remove(d.mesh));
-    G.spots.forEach(s=>scene.remove(s.mesh));
+    G.spots.forEach(s=>s.release());
     G.passengers.forEach(p=>scene.remove(p.mesh));
     if(G.beto) scene.remove(G.beto.mesh);
     clearInterval(G.spawnT); clearInterval(G.dogT);
 
     G.cars=[]; G.dogs=[]; G.spots=[]; G.passengers=[];
-    G.level=level; G.money=100; G.lives=3; G.state='PLAYING';
+    G.level=level; G.money=100; G.lives=3; G.parkedCount=0; G.state='PLAYING';
 
     G.beto=new Beto();
     G.beto.mesh.position.set(0,0,5);
@@ -560,8 +660,7 @@ function startGame(level){
     const spawnCar=()=>{
         if(G.cars.length>=G.maxCars) return;
         const car=new Car();
-        // Aparecen por ARRIBA (z negativo)
-        car.mesh.position.set((Math.random()-0.5)*30,0.15,-60);
+        car.mesh.position.set((Math.random()-0.5)*30,0.15,-55);
         G.cars.push(car);
     };
 
@@ -575,12 +674,12 @@ function startGame(level){
         G.dogs.push(dog);
     };
 
-    for(let i=0;i<3;i++) setTimeout(spawnCar,i*400);
+    for(let i=0;i<3;i++) setTimeout(spawnCar,i*500);
 
     G.spawnT=setInterval(()=>{ if(G.state==='PLAYING') spawnCar(); }, cfg.spawn);
     G.dogT=setInterval(()=>{ if(G.state==='PLAYING') spawnDog(); }, cfg.dogs);
 
-    console.log('[BETO] Nivel',level,'iniciado');
+    console.log('[BETO] Nivel',level,'iniciado - meta:',cfg.target);
 }
 
 function gameOver(reason){
@@ -606,14 +705,15 @@ canvas.addEventListener('click', e=>{
     G.beto.moveTo(pt.x,pt.z);
 
     // Verificar si es un slot de estacionamiento
-    const slotCenters=[-40,-32,-24,-16,-8,0,8,16,24,32,40];
     let slotX=null;
-    for(const cx of slotCenters){
+    for(const cx of SLOT_CENTERS){
         if(Math.abs(pt.x-cx)<3.5){ slotX=cx; break; }
     }
     if(slotX!==null && Math.abs(pt.z)<9){
-        const exists=G.spots.some(s=>Math.abs(s.x-slotX)<1 && Math.abs(s.z-pt.z)<2);
-        if(!exists){
+        // Ya hay un spot aquí?
+        const existing=G.spots.find(s=>Math.abs(s.x-slotX)<1 && Math.abs(s.z-pt.z)<2);
+        if(!existing){
+            // Crear nuevo spot
             G.spots.push(new ParkingSpot(slotX,pt.z));
             toast('Activando lugar...','#FFEE00');
         }
@@ -653,24 +753,36 @@ let lastT = performance.now();
         G.spots.forEach(s=>s.update(dt));
         G.passengers.forEach(p=>p.update(dt));
 
-        G.cars=G.cars.filter(c=>{ if(!c.visible){scene.remove(c.mesh);return false;} return true; });
-        G.dogs=G.dogs.filter(d=>{ if(!d.visible){scene.remove(d.mesh);return false;} return true; });
-        G.passengers=G.passengers.filter(p=>{ if(!p.visible){scene.remove(p.mesh);return false;} return true; });
-        G.spots=G.spots.filter(s=>{
-            if(s.state==='active' && s.assigned){
-                const carStillThere=G.cars.some(c=>c.parkPos && Math.abs(c.parkPos.x-s.x)<1 && c.visible);
-                if(!carStillThere){ scene.remove(s.mesh); return false; }
+        // Limpiar invisibles
+        G.cars=G.cars.filter(c=>{
+            if(!c.visible){
+                scene.remove(c.mesh);
+                // Liberar spot
+                if(c.parkPos){
+                    const spot=G.spots.find(s=>Math.abs(s.x-c.parkPos.x)<1 && Math.abs(s.z-c.parkPos.z)<1);
+                    if(spot) spot.release();
+                }
+                return false;
             }
             return true;
         });
-
-        if(G.money<=0) gameOver('¡Sin plata! 💸');
+        G.dogs=G.dogs.filter(d=>{ if(!d.visible){scene.remove(d.mesh);return false;} return true; });
+        G.passengers=G.passengers.filter(p=>{ if(!p.visible){scene.remove(p.mesh);return false;} return true; });
+        G.spots=G.spots.filter(s=>{
+            // Si el spot está asignado y el auto ya no está, liberar
+            if(s.assigned && s.carId && !G.cars.includes(s.carId)){
+                s.release();
+                return false;
+            }
+            // Si el spot está activo pero no asignado y no hay auto esperando, mantener
+            return true;
+        });
     }
 
     const $=id=>document.getElementById(id);
     if($('money-display'))  $('money-display').textContent =`$${G.money}`;
     if($('lives-display'))  $('lives-display').textContent =G.lives;
-    if($('cars-display'))   $('cars-display').textContent  =`${G.cars.length}/${G.maxCars}`;
+    if($('cars-display'))   $('cars-display').textContent  =`${G.parkedCount}/${LEVELS[G.level]?.target||20}`;
     if($('level-display'))  $('level-display').textContent =`${G.level} - ${LEVELS[G.level]?.label||''}`;
 
     renderer.render(scene, camera);
@@ -694,5 +806,4 @@ document.getElementById('restart-btn').addEventListener('click',()=>{
     document.getElementById('start-screen').style.display='block';
 });
 
-// Expose for debugging
 window._G = G;
